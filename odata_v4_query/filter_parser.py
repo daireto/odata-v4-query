@@ -164,7 +164,7 @@ class ODataFilterParser:
         ):
             return node.value
 
-        return f"{node.value!r}"
+        return f'{node.value!r}'
 
     def _evaluate_identifier(self, node: FilterNode) -> str:
         """Evaluates an identifier node.
@@ -186,6 +186,7 @@ class ODataFilterParser:
         """
         if not node.value:
             raise ParseError('unexpected null identifier')
+
         return node.value
 
     def _evaluate_list(self, node: FilterNode) -> str:
@@ -208,16 +209,39 @@ class ODataFilterParser:
         """
         if not node.arguments:
             raise ParseError('unexpected empty list')
+
         values = [self.evaluate(arg) for arg in node.arguments]
         return f"({', '.join(values)})"
 
     def _evaluate_operator(self, node: FilterNode) -> str:
+        """Evaluates an operator node.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            Operator value.
+
+        Raises
+        ------
+        ParseError
+            If node value is None.
+        ParseError
+            If node left or right is None.
+        ParseError
+            If node value is not ``not`` and node left or right is None.
+        """
         if not node.value:
             raise ParseError('unexpected null operator')
 
         if node.value == 'not':
             if not node.right:
                 raise ParseError('unexpected null operand for operator "not"')
+
             return f'not {self.evaluate(node.right)}'
 
         if not node.left or not node.right:
@@ -228,8 +252,28 @@ class ODataFilterParser:
         return f'({self.evaluate(node.left)} {node.value} {self.evaluate(node.right)})'
 
     def _evaluate_function(self, node: FilterNode) -> str:
+        """Evaluates a function node.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            Function value.
+
+        Raises
+        ------
+        ParseError
+            If node value is None.
+        ParseError
+            If node arguments is None.
+        """
         if not node.value:
             raise ParseError('unexpected null function name')
+
         if not node.arguments:
             raise ParseError(
                 f'unexpected empty function arguments for function {node.value!r}'
