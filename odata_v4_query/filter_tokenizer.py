@@ -139,8 +139,16 @@ class ODataFilterTokenizer:
         """
         self.__position = 0
         self.__tokens = []
+        expr_len = len(expr)
 
-        while self.__position < len(expr):
+        char_handlers = {
+            '(': lambda: self.__tokens.append(Token(TokenType.LPAREN, '(', self.__position)),
+            ')': lambda: self.__tokens.append(Token(TokenType.RPAREN, ')', self.__position)),
+            ',': lambda: self.__tokens.append(Token(TokenType.COMMA, ',', self.__position)),
+            "'": lambda: self._handle_string_literal(expr),
+        }
+
+        while self.__position < expr_len:
             char = expr[self.__position]
 
             # skip whitespace
@@ -148,32 +156,11 @@ class ODataFilterTokenizer:
                 self.__position += 1
                 continue
 
-            # handle parentheses
-            if char == '(':
-                self.__tokens.append(
-                    Token(TokenType.LPAREN, '(', self.__position)
-                )
+            # Handle special characters using dispatch dictionary
+            handler = char_handlers.get(char)
+            if handler:
+                handler()
                 self.__position += 1
-                continue
-            elif char == ')':
-                self.__tokens.append(
-                    Token(TokenType.RPAREN, ')', self.__position)
-                )
-                self.__position += 1
-                continue
-
-            # handle comma
-            if char == ',':
-                self.__tokens.append(
-                    Token(TokenType.COMMA, ',', self.__position)
-                )
-                self.__position += 1
-                continue
-
-            # handle string literals
-            if char == "'":
-                value, pos = self._extract_string_literal(expr)
-                self.__tokens.append(Token(TokenType.LITERAL, value, pos))
                 continue
 
             # handle numbers
@@ -185,8 +172,8 @@ class ODataFilterTokenizer:
             # handle identifiers, operators, and functions
             if char.isalpha():
                 value, pos = self._extract_identifier(expr)
-
                 lowercased_value = value.lower()
+
                 if lowercased_value in self.__operators:
                     self.__tokens.append(
                         Token(
@@ -206,14 +193,16 @@ class ODataFilterTokenizer:
                         )
                     )
                 else:
-                    self.__tokens.append(
-                        Token(TokenType.IDENTIFIER, value, pos)
-                    )
+                    self.__tokens.append(Token(TokenType.IDENTIFIER, value, pos))
                 continue
 
             raise TokenizeError(char, self.__position)
 
         return self.__tokens
+
+    def _handle_string_literal(self, expr: str) -> None:
+        value, pos = self._extract_string_literal(expr)
+        self.__tokens.append(Token(TokenType.LITERAL, value, pos))
 
     def _extract_string_literal(self, expr: str) -> tuple[str, int]:
         """Extracts a string literal from the expression.
@@ -230,28 +219,25 @@ class ODataFilterTokenizer:
             the first character of the string literal.
         """
         start_pos = self.__position
-        self.__position += 1  # skip opening quote
-        value = ''
+        expr_len = len(expr)
+        end_pos = start_pos + 1  # skip opening quote
+        chars = []
 
-        while self.__position < len(expr):
-            char = expr[self.__position]
+        while end_pos < expr_len:
+            char = expr[end_pos]
             if char == "'":
-                if (
-                    self.__position + 1 < len(expr)
-                    and expr[self.__position + 1] == "'"
-                ):
-                    # handle escaped single quote
-                    value += "'"
-                    self.__position += 2
+                if end_pos + 1 < expr_len and expr[end_pos + 1] == "'":
+                    chars.append("'")
+                    end_pos += 2
                 else:
-                    # end of string
-                    self.__position += 1
+                    end_pos += 1
                     break
             else:
-                value += char
-                self.__position += 1
+                chars.append(char)
+                end_pos += 1
 
-        return value, start_pos
+        self.__position = end_pos
+        return ''.join(chars), start_pos
 
     def _extract_number(self, expr: str) -> tuple[str, int]:
         """Extracts a number from the expression.
@@ -268,17 +254,22 @@ class ODataFilterTokenizer:
             the first character of the number.
         """
         start_pos = self.__position
-        value = ''
+        expr_len = len(expr)
+        end_pos = start_pos
+        has_decimal = False
 
-        while self.__position < len(expr):
-            char = expr[self.__position]
-            if char.isdigit() or char == '.':
-                value += char
-                self.__position += 1
+        while end_pos < expr_len:
+            char = expr[end_pos]
+            if char.isdigit():
+                end_pos += 1
+            elif char == '.' and not has_decimal:
+                has_decimal = True
+                end_pos += 1
             else:
                 break
 
-        return value, start_pos
+        self.__position = end_pos
+        return expr[start_pos:end_pos], start_pos
 
     def _extract_identifier(self, expr: str) -> tuple[str, int]:
         """Extracts an identifier from the expression.
@@ -295,14 +286,14 @@ class ODataFilterTokenizer:
             the first character of the identifier.
         """
         start_pos = self.__position
-        value = ''
+        expr_len = len(expr)
+        end_pos = start_pos
 
-        while self.__position < len(expr):
-            char = expr[self.__position]
-            if char.isalnum() or char == '_' or char == '/':
-                value += char
-                self.__position += 1
-            else:
+        while end_pos < expr_len:
+            char = expr[end_pos]
+            if not (char.isalnum() or char in '_/'):
                 break
+            end_pos += 1
 
-        return value, start_pos
+        self.__position = end_pos
+        return expr[start_pos:end_pos], start_pos

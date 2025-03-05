@@ -11,7 +11,18 @@ print(options)
 options = parser.parse_query_string('$filter=name eq \'John\' and age gt 25')
 print(options)
 
+
 # Parse filter expressions
 filter_parser = ODataFilterParser()
 ast = filter_parser.parse('name eq \'John\' and age gt 25')
 print(ast)
+
+print(options.filter_ == ast)
+
+expr = filter_parser.evaluate(ast)
+print(expr)
+
+if options.filter_:
+    print(expr == filter_parser.evaluate(options.filter_))
+else:
+    print('No filter')
