@@ -1,7 +1,43 @@
 """Exceptions."""
 
 
-class TokenizeError(ValueError):
+class ODataParserError(Exception):
+    """Base class for all OData parser errors."""
+
+
+class ParseError(ODataParserError, ValueError):
+    """Parser error."""
+
+    def __init__(self, message: str) -> None:
+        """Parser error.
+
+        Parameters
+        ----------
+        message : str
+            Error message.
+        """
+        super().__init__(message)
+
+
+class NoPositiveIntegerValue(ODataParserError, ValueError):
+    """No positive integer value error."""
+
+    def __init__(self, param: str, value: str) -> None:
+        """No positive integer value error.
+
+        Parameters
+        ----------
+        param : str
+            Parameter.
+        value : str
+            Value.
+        """
+        super().__init__(
+            f'expected {param} to be a positive integer, got {value!r}'
+        )
+
+
+class TokenizeError(ODataParserError, ValueError):
     """Tokenizer error."""
 
     def __init__(self, char: str, position: int) -> None:
@@ -21,21 +57,7 @@ class TokenizeError(ValueError):
         self.position = position
 
 
-class ParseError(ValueError):
-    """Parser error."""
-
-    def __init__(self, message: str) -> None:
-        """Parser error.
-
-        Parameters
-        ----------
-        message : str
-            Error message.
-        """
-        super().__init__(message)
-
-
-class UnsupportedFormat(ValueError):
+class UnsupportedFormat(ODataParserError, ValueError):
     """Unsupported format error."""
 
     def __init__(self, fmt: str) -> None:
@@ -49,22 +71,4 @@ class UnsupportedFormat(ValueError):
         super().__init__(
             f'unsupported format: {fmt!r}. Supported formats: '
             'json, xml, csv, tsv'
-        )
-
-
-class NoPositiveIntegerValue(ValueError):
-    """No positive integer value error."""
-
-    def __init__(self, param: str, value: str) -> None:
-        """No positive integer value error.
-
-        Parameters
-        ----------
-        param : str
-            Parameter.
-        value : str
-            Value.
-        """
-        super().__init__(
-            f'expected {param} to be a positive integer, got {value!r}'
         )
