@@ -243,17 +243,37 @@ class ODataFilterParser:
     ) -> FilterNode:
         """Parses an expression using precedence climbing.
 
+        This method implements the precedence climbing algorithm to parse
+        expressions with operators of different precedence levels. It handles
+        binary operators and builds an Abstract Syntax Tree (AST) representing
+        the expression structure.
+
         Parameters
         ----------
         tokens : list[Token]
             List of tokens extracted from the filter expression.
         precedence : int, optional
-            Operator precedence, by default 0.
+            Minimum operator precedence level to consider, by default 0.
 
         Returns
         -------
         FilterNode
-            AST representing the parsed expression.
+            AST node representing the parsed expression.
+
+        Raises
+        ------
+        ParseError
+            If an invalid token is encountered or if the expression structure
+            is invalid.
+
+        Notes
+        -----
+        The precedence climbing algorithm works by:
+        1. Parsing the leftmost expression first
+        2. Looking ahead at the next operator
+        3. If the operator has higher precedence than current level,
+            recursively parse the right side
+        4. Otherwise return the current expression
         """
         left = self._parse_primary(tokens)
 
