@@ -57,30 +57,26 @@ class ODataQueryParser:
         filter_parser : ODataFilterParserProtocol | None, optional
             Filter parser, by default None.
         """
-        if supported_options is not None:
-            self.__supported_options = supported_options
-        else:
-            self.__supported_options = {
-                '$count': self._parse_count,
-                '$expand': self._parse_expand,
-                '$filter': self._parse_filter,
-                '$format': self._parse_format,
-                '$orderby': self._parse_orderby,
-                '$search': self._parse_search,
-                '$select': self._parse_select,
-                '$skip': self._parse_skip,
-                '$top': self._parse_top,
-            }
+        self.__supported_options = supported_options or {
+            '$count': self._parse_count,
+            '$expand': self._parse_expand,
+            '$filter': self._parse_filter,
+            '$format': self._parse_format,
+            '$orderby': self._parse_orderby,
+            '$search': self._parse_search,
+            '$select': self._parse_select,
+            '$skip': self._parse_skip,
+            '$top': self._parse_top,
+        }
 
-        if supported_formats is not None:
-            self.__supported_formats = supported_formats
-        else:
-            self.__supported_formats = ('json', 'xml', 'csv', 'tsv')
+        self.__supported_formats = supported_formats or (
+            'json',
+            'xml',
+            'csv',
+            'tsv',
+        )
 
-        if filter_parser is not None:
-            self.__filter_parser = filter_parser
-        else:
-            self.__filter_parser = ODataFilterParser()
+        self.__filter_parser = filter_parser or ODataFilterParser()
 
     def set_supported_options(
         self, supported_options: dict[str, OptionCallback]

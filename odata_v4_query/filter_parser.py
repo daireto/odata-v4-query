@@ -38,7 +38,18 @@ class FilterNode:
 class ODataFilterParserProtocol(Protocol):
 
     def parse(self, expr: str) -> FilterNode:
-        """Parses a filter expression and returns an AST."""
+        """Parses a filter expression and returns an AST.
+
+        Parameters
+        ----------
+        expr : str
+            Filter expression to be parsed.
+
+        Returns
+        -------
+        FilterNode
+            AST representing the parsed filter expression.
+        """
         ...
 
 
@@ -89,8 +100,24 @@ class ODataFilterParser:
         return self._parse_expression(tokens)
 
     def evaluate(self, node: FilterNode) -> str:
-        """Converts the AST back to a filter expression string
-        (for debugging/validation).
+        """Evaluates an AST and returns the corresponding expression.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            Filter expression.
+
+        Raises
+        ------
+        ParseError
+            If node type is None.
+        ParseError
+            If node type is unknown.
         """
         if not node.type_:
             raise ParseError('node type cannot be None')
@@ -110,6 +137,23 @@ class ODataFilterParser:
         return handler(node)
 
     def _evaluate_literal(self, node: FilterNode) -> str:
+        """Evaluates a literal node.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            Literal value.
+
+        Raises
+        ------
+        ParseError
+            If node value is None.
+        """
         if not node.value:
             raise ParseError('unexpected null literal')
 
@@ -123,11 +167,45 @@ class ODataFilterParser:
         return f"{node.value!r}"
 
     def _evaluate_identifier(self, node: FilterNode) -> str:
+        """Evaluates an identifier node.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            Identifier value.
+
+        Raises
+        ------
+        ParseError
+            If node value is None.
+        """
         if not node.value:
             raise ParseError('unexpected null identifier')
         return node.value
 
     def _evaluate_list(self, node: FilterNode) -> str:
+        """Evaluates a list node.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            List value.
+
+        Raises
+        ------
+        ParseError
+            If node arguments is None.
+        """
         if not node.arguments:
             raise ParseError('unexpected empty list')
         values = [self.evaluate(arg) for arg in node.arguments]

@@ -26,7 +26,18 @@ class Token:
 class ODataFilterTokenizerProtocol(Protocol):
 
     def tokenize(self, expr: str) -> list[Token]:
-        """Converts filter expression string into tokens."""
+        """Converts filter expression string into tokens.
+
+        Parameters
+        ----------
+        expr : str
+            Filter expression to be tokenized.
+
+        Returns
+        -------
+        list[Token]
+            List of tokens extracted from the filter expression.
+        """
         ...
 
 
@@ -59,31 +70,25 @@ class ODataFilterTokenizer:
         functions : dict[str, int] | None, optional
             Dictionary of supported functions and their arity, by default None.
         """
-        if operators is not None:
-            self.__operators = operators
-        else:
-            self.__operators = {
-                'eq': 2,  # equals
-                'ne': 2,  # not equals
-                'gt': 2,  # greater than
-                'ge': 2,  # greater than or equals
-                'lt': 2,  # less than
-                'le': 2,  # less than or equals
-                'and': 2,  # logical and
-                'or': 2,  # logical or
-                'not': 1,  # logical not
-                'in': 2,  # included in operator
-                'has': 2,  # has (includes) operator
-            }
+        self.__operators = operators or {
+            'eq': 2,  # equals
+            'ne': 2,  # not equals
+            'gt': 2,  # greater than
+            'ge': 2,  # greater than or equals
+            'lt': 2,  # less than
+            'le': 2,  # less than or equals
+            'and': 2,  # logical and
+            'or': 2,  # logical or
+            'not': 1,  # logical not
+            'in': 2,  # included in operator
+            'has': 2,  # has (includes) operator
+        }
 
-        if functions is not None:
-            self.__functions = functions
-        else:
-            self.__functions = {
-                'startswith': 2,
-                'endswith': 2,
-                'contains': 2,
-            }
+        self.__functions = functions or {
+            'startswith': 2,
+            'endswith': 2,
+            'contains': 2,
+        }
 
     def set_operators(self, operators: dict[str, int]) -> None:
         """Sets the supported operators.
@@ -201,6 +206,13 @@ class ODataFilterTokenizer:
         return self.__tokens
 
     def _handle_string_literal(self, expr: str) -> None:
+        """Handles string literals.
+
+        Parameters
+        ----------
+        expr : str
+            Expression to extract the string literal from.
+        """
         value, pos = self._extract_string_literal(expr)
         self.__tokens.append(Token(TokenType.LITERAL, value, pos))
 
