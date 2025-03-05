@@ -153,8 +153,7 @@ class ODataQueryParser:
     def parse_query_params(
         self, query_params: dict[str, list[str]]
     ) -> ODataQueryOptions:
-        """Parses OData query parameters and
-        returns structured options.
+        """Parses OData query parameters and returns structured options.
 
         Parameters
         ----------
