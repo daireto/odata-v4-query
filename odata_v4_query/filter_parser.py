@@ -1,8 +1,13 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
 
 from .errors import ParseError
-from .filter_tokenizer import ODataFilterTokenizer, Token, TokenType
+from .filter_tokenizer import (
+    ODataFilterTokenizer,
+    ODataFilterTokenizerProtocol,
+    Token,
+    TokenType,
+)
 
 
 @dataclass
@@ -14,29 +19,48 @@ class FilterNode:
     arguments: list['FilterNode'] | None = None
 
 
+class ODataFilterParserProtocol(Protocol):
+
+    def parse(self, expr: str) -> FilterNode:
+        """Parses a filter expression and returns an AST."""
+        ...
+
+
 class ODataFilterParser:
     """Parser for OData V4 filter expressions."""
 
-    position: int
-    """Current position in the filter expression."""
-
-    tokens: list[Token]
-    """Tokens extracted from the filter expression."""
-
-    tokenizer: ODataFilterTokenizer
+    __tokenizer: ODataFilterTokenizerProtocol
     """Tokenizer for the filter expression."""
 
-    def __init__(self):
-        self.position = 0
-        self.tokens: list[Token] = []
-        self.tokenizer = ODataFilterTokenizer()
+    def __init__(self, tokenizer: ODataFilterTokenizerProtocol | None = None):
+        """Parser for OData V4 filter expressions.
 
-    def parse(self, filter_expression: str) -> FilterNode:
+        Parameters
+        ----------
+        tokenizer : ODataFilterTokenizerProtocol | None, optional
+            Tokenizer, by default None.
+        """
+        if tokenizer is not None:
+            self.__tokenizer = tokenizer
+        else:
+            self.__tokenizer = ODataFilterTokenizer()
+
+    def set_tokenizer(self, tokenizer: ODataFilterTokenizerProtocol) -> None:
+        """Sets the tokenizer.
+
+        Parameters
+        ----------
+        tokenizer : ODataFilterTokenizerProtocol
+            Tokenizer.
+        """
+        self.__tokenizer = tokenizer
+
+    def parse(self, expr: str) -> FilterNode:
         """Parses a filter expression and returns an AST.
 
         Parameters
         ----------
-        filter_expression : str
+        expr : str
             Filter expression to be parsed.
 
         Returns
@@ -44,7 +68,7 @@ class ODataFilterParser:
         FilterNode
             AST representing the parsed filter expression.
         """
-        tokens = self.tokenizer.tokenize(filter_expression)
+        tokens = self.__tokenizer.tokenize(expr)
         return self._parse_expression(tokens)
 
     def evaluate(self, node: FilterNode) -> str:
