@@ -1,28 +1,3 @@
-<p align="center">
-    <img src="docs/images/logo.png" alt="OData V4 Query" />
-</p>
-
-<p align="center">
-    <a href="https://pypi.org/project/odata-v4-query" target="_blank">
-        <img src="https://img.shields.io/pypi/pyversions/odata-v4-query" alt="Supported Python versions">
-    </a>
-    <a href="https://pypi.org/project/odata-v4-query" target="_blank">
-        <img src="https://img.shields.io/pypi/v/odata-v4-query" alt="Package version">
-    </a>
-    <a href="https://pypi.org/project/SQLAlchemy" target="_blank">
-        <img src="https://img.shields.io/badge/SQLAlchemy-2.0%2B-orange" alt="Supported SQLAlchemy versions">
-    </a>
-    <a href="https://github.com/daireto/odata-v4-query/actions" target="_blank">
-        <img src="https://github.com/daireto/odata-v4-query/actions/workflows/publish.yml/badge.svg" alt="Publish">
-    </a>
-    <a href='https://coveralls.io/github/daireto/odata-v4-query?branch=main'>
-        <img src='https://coveralls.io/repos/github/daireto/odata-v4-query/badge.svg?branch=main' alt='Coverage Status' />
-    </a>
-    <a href="/LICENSE" target="_blank">
-        <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
-    </a>
-</p>
-
 <!-- omit in toc -->
 # OData V4 Query
 
@@ -31,15 +6,12 @@ standard query parameters. Provides helper functions to apply OData V4 query
 options to ORM/ODM queries such as SQLAlchemy and Beanie, and SQLAlchemy
 wrappers such as OData V4 Query.
 
-Visit the [documentation website](https://daireto.github.io/odata-v4-query/).
-
 <!-- omit in toc -->
 ## Table of Contents
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
 - [Support](#support)
@@ -68,12 +40,10 @@ Visit the [documentation website](https://daireto.github.io/odata-v4-query/).
 
 ## Requirements
 
-Python>=3.10
-
-Optional dependencies:
-- beanie>=1.29.0 (for Beanie ODM support)
-- sqlactive>=0.3.0 (for SQLActive support)
-- sqlalchemy>=2.0.0 (for SQLAlchemy support)
+- `Python>=3.10`
+- `beanie>=1.29.0 (optional, for Beanie ODM support)`
+- `sqlactive>=0.3.0 (optional, for SQLActive support)`
+- `sqlalchemy>=2.0.0 (optional, for SQLAlchemy support)`
 
 ## Installation
 
@@ -102,19 +72,15 @@ filter_parser = ODataFilterParser()
 ast = filter_parser.parse('name eq \'John\' and age gt 25')
 ```
 
-## Documentation
-
-Find the complete documentation [here](https://daireto.github.io/sqlactive/).
-
 ## Contributing
 
 Please read the [contribution guidelines](CONTRIBUTING.md).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE)
+This project is licensed under the MIT License. See the [LICENSE](LICENSE)
 file for details.
 
 ## Support
 
-If you find this project useful, give it a ⭐ on GitHub to show your support!
+If you find this project useful, give it a ⭐ on GitHub!

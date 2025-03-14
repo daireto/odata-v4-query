@@ -1,6 +1,3 @@
-"""Exceptions."""
-
-
 class ODataParserError(Exception):
     """Base class for all OData parser errors."""
 
