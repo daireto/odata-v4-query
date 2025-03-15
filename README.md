@@ -4,7 +4,7 @@
 A lightweight, simple and fast parser for OData V4 query options supporting
 standard query parameters. Provides helper functions to apply OData V4 query
 options to ORM/ODM queries such as SQLAlchemy and Beanie, and SQLAlchemy
-wrappers such as OData V4 Query.
+wrappers such as SQLActive.
 
 <!-- omit in toc -->
 ## Table of Contents
@@ -30,9 +30,9 @@ wrappers such as OData V4 Query.
     - `$top` - Limit to N items
 
 - Comprehensive filter expression support:
-    - Comparison operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`
-    - Logical operators: `and`, `or`, `not`
-    - Collection operators: `in`, `has`
+    - Comparison operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `in`, `nin`
+    - Logical operators: `and`, `or`, `not`, `nor`
+    - Collection operators: `has`
     - String functions: `startswith`, `endswith`, `contains`
 
 - Utility functions to apply query options to SQLAlchemy, Beanie and
@@ -41,7 +41,7 @@ wrappers such as OData V4 Query.
 ## Requirements
 
 - `Python>=3.10`
-- `beanie>=1.29.0 (optional, for Beanie ODM support)`
+- `beanie>=1.23.0 (optional, for Beanie ODM support)`
 - `sqlactive>=0.3.0 (optional, for SQLActive support)`
 - `sqlalchemy>=2.0.0 (optional, for SQLAlchemy support)`
 
@@ -70,11 +70,14 @@ options = parser.parse_query_string('$filter=name eq \'John\' and age gt 25')
 # Parse filter expressions
 filter_parser = ODataFilterParser()
 ast = filter_parser.parse('name eq \'John\' and age gt 25')
+
+# Evaluate filter expressions
+filter_parser.evaluate(ast)
 ```
 
 ## Contributing
 
-Please read the [contribution guidelines](CONTRIBUTING.md).
+See the [contribution guidelines](CONTRIBUTING.md).
 
 ## License
 
