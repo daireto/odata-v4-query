@@ -13,12 +13,18 @@ OptionCallback = Callable[[str, 'ODataQueryOptions'], None]
 
 
 @dataclass
+class OrderbyItem:
+    field: str
+    direction: str
+
+
+@dataclass
 class ODataQueryOptions:
     count: bool = False
     expand: list[str] | None = None
     filter_: FilterNode | None = None
     format_: str | None = None
-    orderby: list[dict[str, str]] | None = None
+    orderby: list[OrderbyItem] | None = None
     search: str | None = None
     select: list[str] | None = None
     skip: int | None = None
@@ -242,20 +248,27 @@ class ODataQueryParser:
         options : ODataQueryOptions
             Current query options object.
         """
+        DEFAULT_DIRECTION = 'asc'
+
         orderby_list = []
         for item in value.split(','):
             item = item.strip()
-            lowercased_item = item.lower()
-            if lowercased_item.endswith(' asc'):
-                field, direction = item.rsplit(' asc', 1)
-            elif lowercased_item.endswith(' desc'):
-                field, direction = item.rsplit(' desc', 1)
+            if not item:
+                continue
+
+            if item.endswith(' asc'):
+                field, direction = item.rsplit(maxsplit=1)
+            elif item.endswith(' desc'):
+                field, direction = item.rsplit(maxsplit=1)
             else:
                 field = item
-                direction = 'asc'  # default direction
+                direction = DEFAULT_DIRECTION
+
+            if not direction:
+                direction = DEFAULT_DIRECTION
 
             orderby_list.append(
-                {'field': field.strip(), 'direction': direction.strip()}
+                OrderbyItem(field=field.strip(), direction=direction.strip())
             )
 
         options.orderby = orderby_list
