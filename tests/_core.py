@@ -1,8 +1,12 @@
+import os
+
 from beanie import Document, init_beanie
+from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 
-MONGO_CONN_STR = 'mongodb+srv://test:test@cluster0.527ii.mongodb.net/'
+load_dotenv()
+MONGO_CONN_STR = os.getenv('MONGO_CONN_STR')
 
 
 class User(Document):
