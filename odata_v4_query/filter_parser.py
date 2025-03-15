@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 from .errors import ParseError
 from .filter_tokenizer import (
@@ -10,26 +10,28 @@ from .filter_tokenizer import (
     TokenType,
 )
 
-OPERATOR_PRECEDENCE = {
-    'not': 3,
+_OPERATOR_PRECEDENCE = {
+    'not': 4,
+    'eq': 3,
+    'ne': 3,
+    'gt': 3,
+    'ge': 3,
+    'lt': 3,
+    'le': 3,
+    'in': 3,
+    'has': 3,
     'and': 2,
     'or': 1,
-    'eq': 2,
-    'ne': 2,
-    'gt': 2,
-    'ge': 2,
-    'lt': 2,
-    'le': 2,
-    'in': 2,
-    'has': 2,
 }
 """Operator precedence."""
 
 
 @dataclass
 class FilterNode:
-    type_: Literal['literal', 'identifier', 'operator', 'function', 'list']
-    value: str | None = None
+    type_: Literal[
+        'literal', 'identifier', 'operator', 'function', 'list', 'value'
+    ]
+    value: Any | None = None
     left: 'FilterNode | None' = None
     right: 'FilterNode | None' = None
     arguments: list['FilterNode'] | None = None
@@ -330,7 +332,7 @@ class ODataFilterParser:
                 break
 
             op = token.value
-            op_precedence = self._get_operator_precedence(op)
+            op_precedence = self._get_operator_precedence(op)  # type: ignore
 
             if op_precedence < precedence:
                 break
@@ -526,4 +528,4 @@ class ODataFilterParser:
         int
             Precedence level.
         """
-        return OPERATOR_PRECEDENCE.get(operator, 0)
+        return _OPERATOR_PRECEDENCE.get(operator, 0)
