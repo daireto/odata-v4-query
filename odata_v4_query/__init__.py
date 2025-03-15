@@ -4,7 +4,7 @@
 A lightweight, simple and fast parser for OData V4 query options supporting
 standard query parameters. Provides helper functions to apply OData V4 query
 options to ORM/ODM queries such as SQLAlchemy and Beanie, and SQLAlchemy
-wrappers such as OData V4 Query.
+wrappers such as SQLActive.
 """
 
 from .filter_parser import FilterNode, ODataFilterParser

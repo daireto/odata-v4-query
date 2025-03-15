@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
 
-from .errors import TokenizeError
+from .errors import InvalidNumberError, TokenizeError
 
 
 class TokenType(Enum):
@@ -18,7 +18,7 @@ class TokenType(Enum):
 @dataclass
 class Token:
     type_: TokenType
-    value: str
+    value: str | int | float
     position: int
     args_count: int | None = None
 
@@ -66,21 +66,30 @@ class ODataFilterTokenizer:
         Parameters
         ----------
         operators : dict[str, int] | None, optional
-            Dictionary of supported operators and their arity, by default None.
+            Dictionary of supported operators and their arity,
+            by default None.
         functions : dict[str, int] | None, optional
-            Dictionary of supported functions and their arity, by default None.
+            Dictionary of supported functions and their arity,
+            by default None.
         """
         self.__operators = operators or {
+            # comparison
             'eq': 2,  # equals
             'ne': 2,  # not equals
             'gt': 2,  # greater than
             'ge': 2,  # greater than or equals
             'lt': 2,  # less than
             'le': 2,  # less than or equals
-            'and': 2,  # logical and
-            'or': 2,  # logical or
-            'not': 1,  # logical not
             'in': 2,  # included in operator
+            'nin': 2,  # not included in operator
+
+            # logical
+            'and': 2,
+            'or': 2,
+            'not': 1,
+            'nor': 1,
+
+            # collection
             'has': 2,  # has (includes) operator
         }
 
@@ -251,7 +260,7 @@ class ODataFilterTokenizer:
         self.__position = end_pos
         return ''.join(chars), start_pos
 
-    def _extract_number(self, expr: str) -> tuple[str, int]:
+    def _extract_number(self, expr: str) -> tuple[int | float, int]:
         """Extracts a number from the expression.
 
         Parameters
@@ -261,9 +270,14 @@ class ODataFilterTokenizer:
 
         Returns
         -------
-        tuple[str, int]
+        tuple[int | float, int]
             A tuple containing the number and the position of
             the first character of the number.
+
+        Raises
+        ------
+        InvalidNumberError
+            If the number is invalid.
         """
         start_pos = self.__position
         expr_len = len(expr)
@@ -281,7 +295,14 @@ class ODataFilterTokenizer:
                 break
 
         self.__position = end_pos
-        return expr[start_pos:end_pos], start_pos
+
+        try:
+            value = expr[start_pos:end_pos]
+            number = float(value) if '.' in value else int(value)
+        except ValueError:
+            raise InvalidNumberError(expr[start_pos:end_pos], start_pos)
+
+        return number, start_pos
 
     def _extract_identifier(self, expr: str) -> tuple[str, int]:
         """Extracts an identifier from the expression.

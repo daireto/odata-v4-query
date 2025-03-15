@@ -2,6 +2,24 @@ class ODataParserError(Exception):
     """Base class for all OData parser errors."""
 
 
+class InvalidNumberError(ODataParserError, ValueError):
+    """Invalid number error."""
+
+    def __init__(self, value: str, position: int) -> None:
+        """Invalid number error.
+
+        Parameters
+        ----------
+        value : str
+            Value.
+        position : int
+            Start position.
+        """
+        super().__init__(
+            f'invalid number at position {position}, got {value!r}'
+        )
+
+
 class ParseError(ODataParserError, ValueError):
     """Parser error."""
 
@@ -48,10 +66,22 @@ class TokenizeError(ODataParserError, ValueError):
             Character position.
         """
         super().__init__(
-            f'unexpected character {char!r} at position {self.position}'
+            f'unexpected character {char!r} at position {position}'
         )
-        self.char = char
-        self.position = position
+
+
+class UnexpectedNullOperand(ODataParserError, ValueError):
+    """Unexpected null operand error."""
+
+    def __init__(self, operator: str) -> None:
+        """Unexpected null operand error.
+
+        Parameters
+        ----------
+        operator : str
+            Operator.
+        """
+        super().__init__(f'unexpected null operand for operator {operator!r}')
 
 
 class UnsupportedFormat(ODataParserError, ValueError):
