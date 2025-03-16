@@ -1,7 +1,9 @@
 import pytest
 import pytest_asyncio
 
-from odata_v4_query.query_parser import ODataQueryParser
+from odata_v4_query.errors import ParseError, UnexpectedNullOperand
+from odata_v4_query.filter_parser import FilterNode
+from odata_v4_query.query_parser import ODataQueryOptions, ODataQueryParser
 from odata_v4_query.utils import apply_to_beanie_query
 
 from ._core import User, UserProjection, get_client, seed_data
@@ -38,6 +40,7 @@ class TestBeanie:
         assert result[1].name == 'Jane'
 
     async def test_filter(self):
+        # comparison and logical
         options = self.parser.parse_query_string(
             "$filter=name eq 'John' and age ge 25"
         )
@@ -45,6 +48,58 @@ class TestBeanie:
         result = await query.to_list()
         assert len(result) == 1
         assert result[0].name == 'John'
+
+        options = self.parser.parse_query_string(
+            "$filter=name in ('Eve', 'Frank')"
+        )
+        query = apply_to_beanie_query(User, options)
+        result = await query.to_list()
+        assert len(result) == 2
+        assert result[0].name == 'Eve'
+        assert result[1].name == 'Frank'
+
+        # string functions
+        options = self.parser.parse_query_string(
+            "$filter=startswith(name, 'J') and age ge 25"
+        )
+        query = apply_to_beanie_query(User, options)
+        result = await query.to_list()
+        assert len(result) == 2
+        assert result[0].name == 'John'
+        assert result[1].name == 'Jane'
+
+        options = self.parser.parse_query_string(
+            "$filter=not endswith(name, 'e')"
+        )
+        query = apply_to_beanie_query(User, options)
+        result = await query.to_list()
+        assert len(result) == 5
+        assert result[0].name == 'John'
+        assert result[1].name == 'Bob'
+        assert result[2].name == 'Bob'
+        assert result[3].name == 'David'
+        assert result[4].name == 'Frank'
+
+        options = self.parser.parse_query_string(
+            "$filter=contains(name, 'i') and age le 35"
+        )
+        query = apply_to_beanie_query(User, options)
+        result = await query.to_list()
+        assert len(result) == 2
+        assert result[0].name == 'Alice'
+        assert result[0].age == 35
+        assert result[1].name == 'Charlie'
+        assert result[1].age == 32
+
+        # collection
+        options = self.parser.parse_query_string(
+            "$filter=addresses has '101 Main St'"
+        )
+        query = apply_to_beanie_query(User, options)
+        result = await query.to_list()
+        assert len(result) == 2
+        assert result[0].name == 'Alice'
+        assert result[1].name == 'Bob'
 
     async def test_search(self):
         options = self.parser.parse_query_string('$search=John')
@@ -101,3 +156,128 @@ class TestBeanie:
         assert isinstance(result[0], UserProjection)
         assert result[0].name == 'John'
         assert result[0].email == 'john@example.com'
+
+    async def test_error(self):
+        # unexpected null filters
+        with pytest.raises(ParseError):
+            options = ODataQueryOptions(filter_=FilterNode(type_='value'))
+            apply_to_beanie_query(User, options)
+
+        # null left or right operands
+        with pytest.raises(UnexpectedNullOperand):
+            options = ODataQueryOptions(
+                filter_=FilterNode(type_='operator', value='eq')
+            )
+            apply_to_beanie_query(User, options)
+
+        # null left or right values
+        with pytest.raises(UnexpectedNullOperand):
+            options = ODataQueryOptions(
+                filter_=FilterNode(
+                    type_='operator',
+                    value='eq',
+                    left=FilterNode(type_='identifier', value='name'),
+                    right=FilterNode(type_='literal'),
+                )
+            )
+            apply_to_beanie_query(User, options)
+
+        # null list arguments
+        with pytest.raises(UnexpectedNullOperand):
+            options = ODataQueryOptions(
+                filter_=FilterNode(
+                    type_='operator',
+                    value='in',
+                    left=FilterNode(type_='identifier', value='name'),
+                    right=FilterNode(type_='list'),
+                )
+            )
+            apply_to_beanie_query(User, options)
+
+        # null operand for has operator
+        with pytest.raises(UnexpectedNullOperand):
+            options = ODataQueryOptions(
+                filter_=FilterNode(
+                    type_='operator',
+                    value='has',
+                    left=FilterNode(type_='identifier', value='addresses'),
+                    right=FilterNode(type_='literal'),
+                )
+            )
+            apply_to_beanie_query(User, options)
+
+        # null operand for and/or operator
+        with pytest.raises(UnexpectedNullOperand):
+            options = ODataQueryOptions(
+                filter_=FilterNode(type_='operator', value='and')
+            )
+            apply_to_beanie_query(User, options)
+
+        # null operand for not/nor operator
+        with pytest.raises(UnexpectedNullOperand):
+            options = ODataQueryOptions(
+                filter_=FilterNode(type_='operator', value='not')
+            )
+            apply_to_beanie_query(User, options)
+
+        # unknown operator
+        with pytest.raises(ParseError):
+            options = ODataQueryOptions(
+                filter_=FilterNode(type_='operator', value='unknown')
+            )
+            apply_to_beanie_query(User, options)
+
+        # null function
+        with pytest.raises(ParseError):
+            options = ODataQueryOptions(filter_=FilterNode(type_='function'))
+            apply_to_beanie_query(User, options)
+
+        # null function arguments
+        with pytest.raises(ParseError):
+            options = ODataQueryOptions(
+                filter_=FilterNode(type_='function', value='startswith')
+            )
+            apply_to_beanie_query(User, options)
+
+        # more than 2 function arguments
+        with pytest.raises(ParseError):
+            options = ODataQueryOptions(
+                filter_=FilterNode(
+                    type_='function',
+                    value='startswith',
+                    arguments=[
+                        FilterNode(type_='identifier', value='name'),
+                        FilterNode(type_='literal', value='J'),
+                        FilterNode(type_='literal', value='J'),
+                    ],
+                )
+            )
+            apply_to_beanie_query(User, options)
+
+        # null function operand
+        with pytest.raises(ParseError):
+            options = ODataQueryOptions(
+                filter_=FilterNode(
+                    type_='function',
+                    value='startswith',
+                    arguments=[
+                        FilterNode(type_='identifier', value='name'),
+                        FilterNode(type_='literal'),
+                    ],
+                )
+            )
+            apply_to_beanie_query(User, options)
+
+        # unknown function
+        with pytest.raises(ParseError):
+            options = ODataQueryOptions(
+                filter_=FilterNode(
+                    type_='function',
+                    value='unknown',
+                    arguments=[
+                        FilterNode(type_='identifier', value='name'),
+                        FilterNode(type_='literal', value='J'),
+                    ],
+                )
+            )
+            apply_to_beanie_query(User, options)
