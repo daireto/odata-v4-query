@@ -27,6 +27,8 @@ class ODataFilterParserProtocol(Protocol):
 
     def parse(self, expr: str) -> FilterNode: ...
 
+    def evaluate(self, node: FilterNode) -> str: ...
+
 
 class ODataFilterParser:
     """Parser for OData V4 filter expressions."""
@@ -108,6 +110,7 @@ class ODataFilterParser:
             'list': self._evaluate_list,
             'operator': self._evaluate_operator,
             'function': self._evaluate_function,
+            'value': lambda n: repr(n.value),
         }
 
         handler = handlers.get(node.type_)
