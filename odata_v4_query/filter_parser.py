@@ -2,28 +2,14 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Literal, Protocol
 
-from .errors import ParseError
+from .definitions import OPERATOR_PRECEDENCE
+from .errors import EvaluateError, ParseError
 from .filter_tokenizer import (
     ODataFilterTokenizer,
     ODataFilterTokenizerProtocol,
     Token,
     TokenType,
 )
-
-_OPERATOR_PRECEDENCE = {
-    'not': 4,
-    'eq': 3,
-    'ne': 3,
-    'gt': 3,
-    'ge': 3,
-    'lt': 3,
-    'le': 3,
-    'in': 3,
-    'has': 3,
-    'and': 2,
-    'or': 1,
-}
-"""Operator precedence."""
 
 
 @dataclass
@@ -39,20 +25,7 @@ class FilterNode:
 
 class ODataFilterParserProtocol(Protocol):
 
-    def parse(self, expr: str) -> FilterNode:
-        """Parses a filter expression and returns an AST.
-
-        Parameters
-        ----------
-        expr : str
-            Filter expression to be parsed.
-
-        Returns
-        -------
-        FilterNode
-            AST representing the parsed filter expression.
-        """
-        ...
+    def parse(self, expr: str) -> FilterNode: ...
 
 
 class ODataFilterParser:
@@ -79,10 +52,10 @@ class ODataFilterParser:
         tokenizer : ODataFilterTokenizerProtocol
             Tokenizer.
         """
-        self.__tokenizer = tokenizer
+        self.__tokenizer = tokenizer  # pragma: no cover
 
     @lru_cache(maxsize=128)
-    def parse(self, expr: str) -> FilterNode:
+    def parse(self, expr: str, parse_null: bool = False) -> FilterNode:
         """Parses a filter expression and returns an AST.
 
         Results are cached for better performance on
@@ -92,6 +65,8 @@ class ODataFilterParser:
         ----------
         expr : str
             Filter expression to be parsed.
+        parse_null : bool, optional
+            Whether to parse the null identifier, by default False.
 
         Returns
         -------
@@ -99,7 +74,10 @@ class ODataFilterParser:
             AST representing the parsed filter expression.
         """
         tokens = self.__tokenizer.tokenize(expr)
-        return self._parse_expression(tokens)
+        if not tokens:
+            return FilterNode(type_='value')
+
+        return self._parse_expression(tokens, parse_null=parse_null)
 
     def evaluate(self, node: FilterNode) -> str:
         """Evaluates an AST and returns the corresponding expression.
@@ -116,13 +94,13 @@ class ODataFilterParser:
 
         Raises
         ------
-        ParseError
+        EvaluateError
             If node type is None.
-        ParseError
+        EvaluateError
             If node type is unknown.
         """
         if not node.type_:
-            raise ParseError('node type cannot be None')
+            raise EvaluateError('node type cannot be None')
 
         handlers = {
             'literal': self._evaluate_literal,
@@ -134,172 +112,32 @@ class ODataFilterParser:
 
         handler = handlers.get(node.type_)
         if not handler:
-            raise ParseError(f'unknown node type: {node.type_!r}')
+            raise EvaluateError(f'unknown node type: {node.type_!r}')
 
         return handler(node)
 
-    def _evaluate_literal(self, node: FilterNode) -> str:
-        """Evaluates a literal node.
-
-        Parameters
-        ----------
-        node : FilterNode
-            AST representing the parsed filter expression.
-
-        Returns
-        -------
-        str
-            Literal value.
-
-        Raises
-        ------
-        ParseError
-            If node value is None.
-        """
-        if not node.value:
-            raise ParseError('unexpected null literal')
-
-        # if it's numeric, don't add quotes
-        if node.value.isdigit() or (
-            node.value.replace('.', '', 1).isdigit()
-            and node.value.count('.') <= 1
-        ):
-            return node.value
-
-        return f'{node.value!r}'
-
-    def _evaluate_identifier(self, node: FilterNode) -> str:
-        """Evaluates an identifier node.
-
-        Parameters
-        ----------
-        node : FilterNode
-            AST representing the parsed filter expression.
-
-        Returns
-        -------
-        str
-            Identifier value.
-
-        Raises
-        ------
-        ParseError
-            If node value is None.
-        """
-        if not node.value:
-            raise ParseError('unexpected null identifier')
-
-        return node.value
-
-    def _evaluate_list(self, node: FilterNode) -> str:
-        """Evaluates a list node.
-
-        Parameters
-        ----------
-        node : FilterNode
-            AST representing the parsed filter expression.
-
-        Returns
-        -------
-        str
-            List value.
-
-        Raises
-        ------
-        ParseError
-            If node arguments is None.
-        """
-        if not node.arguments:
-            raise ParseError('unexpected empty list')
-
-        values = [self.evaluate(arg) for arg in node.arguments]
-        return f"({', '.join(values)})"
-
-    def _evaluate_operator(self, node: FilterNode) -> str:
-        """Evaluates an operator node.
-
-        Parameters
-        ----------
-        node : FilterNode
-            AST representing the parsed filter expression.
-
-        Returns
-        -------
-        str
-            Operator value.
-
-        Raises
-        ------
-        ParseError
-            If node value is None.
-        ParseError
-            If node left or right is None.
-        ParseError
-            If node value is not ``not`` and node left or right is None.
-        """
-        if not node.value:
-            raise ParseError('unexpected null operator')
-
-        if node.value == 'not':
-            if not node.right:
-                raise ParseError('unexpected null operand for operator "not"')
-
-            return f'not {self.evaluate(node.right)}'
-
-        if not node.left or not node.right:
-            raise ParseError(
-                f'unexpected null operand for operator {node.value!r}'
-            )
-
-        return f'({self.evaluate(node.left)} {node.value} {self.evaluate(node.right)})'
-
-    def _evaluate_function(self, node: FilterNode) -> str:
-        """Evaluates a function node.
-
-        Parameters
-        ----------
-        node : FilterNode
-            AST representing the parsed filter expression.
-
-        Returns
-        -------
-        str
-            Function value.
-
-        Raises
-        ------
-        ParseError
-            If node value is None.
-        ParseError
-            If node arguments is None.
-        """
-        if not node.value:
-            raise ParseError('unexpected null function name')
-
-        if not node.arguments:
-            raise ParseError(
-                f'unexpected empty function arguments for function {node.value!r}'
-            )
-
-        args = [self.evaluate(arg) for arg in node.arguments]
-        return f"{node.value}({', '.join(args)})"
-
     def _parse_expression(
-        self, tokens: list[Token], precedence: int = 0
+        self,
+        tokens: list[Token],
+        precedence: int = 0,
+        parse_null: bool = False,
     ) -> FilterNode:
         """Parses an expression using precedence climbing.
 
-        This method implements the precedence climbing algorithm to parse
-        expressions with operators of different precedence levels. It handles
-        binary operators and builds an Abstract Syntax Tree (AST) representing
-        the expression structure.
+        This method implements the precedence climbing algorithm
+        to parse expressions with operators of different precedence
+        levels. It handles binary operators and builds an Abstract
+        Syntax Tree (AST) representing the expression structure.
 
         Parameters
         ----------
         tokens : list[Token]
             List of tokens extracted from the filter expression.
         precedence : int, optional
-            Minimum operator precedence level to consider, by default 0.
+            Minimum operator precedence level to consider,
+            by default 0.
+        parse_null : bool, optional
+            Whether to parse the null identifier, by default False.
 
         Returns
         -------
@@ -309,8 +147,8 @@ class ODataFilterParser:
         Raises
         ------
         ParseError
-            If an invalid token is encountered or if the expression structure
-            is invalid.
+            If an invalid token is encountered or if the expression
+            structure is invalid.
 
         Notes
         -----
@@ -321,7 +159,7 @@ class ODataFilterParser:
             recursively parse the right side
         4. Otherwise return the current expression
         """
-        left = self._parse_primary(tokens)
+        left = self._parse_primary(tokens, parse_null)
 
         while tokens:
             token = tokens[0]
@@ -345,14 +183,18 @@ class ODataFilterParser:
 
         return left
 
-    def _parse_primary(self, tokens: list[Token]) -> FilterNode:
+    def _parse_primary(
+        self, tokens: list[Token], parse_null: bool = False
+    ) -> FilterNode:
         """Parses a primary expression (literal, identifier,
-        function call, or parenthesized expression).
+        function call, or operator).
 
         Parameters
         ----------
         tokens : list[Token]
             List of tokens extracted from the filter expression.
+        parse_null : bool, optional
+            Whether to parse the null identifier, by default False.
 
         Returns
         -------
@@ -382,70 +224,29 @@ class ODataFilterParser:
             return FilterNode(type_='literal', value=token.value)
 
         elif token.type_ == TokenType.IDENTIFIER:
-            identifier_node = FilterNode(type_='identifier', value=token.value)
+            if token.value == 'null' and parse_null:
+                return FilterNode(type_='identifier', value=None)
 
-            # check if this identifier is followed by an
-            # 'in' operator with a list
-            if (
-                tokens
-                and tokens[0].type_ == TokenType.OPERATOR
-                and tokens[0].value == 'in'
-            ):
-                tokens.pop(0)  # consume 'in'
-
-                # handle list of values for 'in' operator
-                if tokens and tokens[0].type_ == TokenType.LPAREN:
-                    tokens.pop(0)  # consume '('
-
-                    values = []
-                    while tokens:
-                        if tokens[0].type_ == TokenType.RPAREN:
-                            tokens.pop(0)  # consume ')'
-                            break
-
-                        value_node = self._parse_expression(tokens)
-                        values.append(value_node)
-
-                        if not tokens:
-                            raise ParseError(
-                                'unexpected end of value list after '
-                                f'{value_node.value!r}'
-                            )
-
-                        # check for comma or closing parenthesis
-                        if tokens[0].type_ == TokenType.COMMA:
-                            tokens.pop(0)  # consume ','
-                        elif tokens[0].type_ != TokenType.RPAREN:
-                            raise ParseError(
-                                f"expected ',' or ')', got {tokens[0].value!r}"
-                            )
-
-                    # create 'in' operator node
-                    return FilterNode(
-                        type_='operator',
-                        value='in',
-                        left=identifier_node,
-                        right=FilterNode(type_='list', arguments=values),
-                    )
-
-            return identifier_node
+            return FilterNode(type_='identifier', value=token.value)
 
         elif token.type_ == TokenType.FUNCTION:
             func_name = token.value
-            args = self._parse_function_arguments(tokens)
+
+            if not tokens or tokens[0].type_ != TokenType.LPAREN:
+                raise ParseError(
+                    f"expected '(' after {func_name!r} function name"
+                )
+
+            tokens.pop(0)  # consume '('
+
+            args = self._parse_list_values(tokens)
             return FilterNode(
                 type_='function', value=func_name, arguments=args
             )
 
         elif token.type_ == TokenType.LPAREN:
-            expr = self._parse_expression(tokens)
-            if not tokens or tokens[0].type_ != TokenType.RPAREN:
-                raise ParseError(
-                    f'missing closing parenthesis after {expr.value!r}'
-                )
-
-            tokens.pop(0)  # consume ')'
-            return expr
+            values = self._parse_list_values(tokens)
+            return FilterNode(type_='list', arguments=values)
 
         elif token.type_ == TokenType.OPERATOR and token.value == 'not':
             expr = self._parse_expression(
@@ -457,10 +258,12 @@ class ODataFilterParser:
             f'unexpected token {token.value!r} at position {token.position}'
         )
 
-    def _parse_function_arguments(
-        self, tokens: list[Token]
-    ) -> list[FilterNode]:
-        """Parses function arguments.
+    def _parse_list_values(self, tokens: list[Token]) -> list[FilterNode]:
+        """Parses a list of values without consuming
+        the opening parenthesis.
+
+        This method is used to parse the arguments of a function call
+        and the values of the ``in`` operator.
 
         Parameters
         ----------
@@ -470,37 +273,33 @@ class ODataFilterParser:
         Returns
         -------
         list[FilterNode]
-            List of function arguments.
+            List of AST nodes representing the parsed values.
 
         Raises
         ------
         ParseError
-            If token after function name is not an opening parenthesis.
+            If closing parenthesis is missing.
         ParseError
-            If an unexpected end of value list is reached.
+            If no comma nor closing parenthesis is found.
         ParseError
             If token is neither a comma nor an closing parenthesis.
         """
-        args = []
+        if not tokens:
+            raise ParseError('missing closing parenthesis')
 
-        if not tokens or tokens[0].type_ != TokenType.LPAREN:
-            raise ParseError("expected '(' after function name")
+        values = []
 
-        tokens.pop(0)  # consume '('
-
-        # handle case of no arguments
-        if tokens and tokens[0].type_ == TokenType.RPAREN:
+        # empty list
+        if tokens[0].type_ == TokenType.RPAREN:
             tokens.pop(0)  # consume ')'
-            return args
+            return values
 
         while tokens:
-            arg = self._parse_expression(tokens)
-            args.append(arg)
+            vnode = self._parse_expression(tokens)
+            values.append(vnode)
 
             if not tokens:
-                raise ParseError(
-                    f'unexpected end of value list after {arg.value!r}'
-                )
+                raise ParseError(f"expected ',' or ')' after {vnode.value!r}")
 
             # check for comma or closing parenthesis
             if tokens[0].type_ == TokenType.COMMA:
@@ -513,7 +312,7 @@ class ODataFilterParser:
                     f"expected ',' or ')', got {tokens[0].value!r}"
                 )
 
-        return args
+        return values
 
     def _get_operator_precedence(self, operator: str) -> int:
         """Returns the precedence level of an operator.
@@ -528,4 +327,160 @@ class ODataFilterParser:
         int
             Precedence level.
         """
-        return _OPERATOR_PRECEDENCE.get(operator, 0)
+        return OPERATOR_PRECEDENCE.get(operator, 0)
+
+    def _evaluate_literal(self, node: FilterNode) -> str:
+        """Evaluates a literal node.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            Literal value.
+
+        Raises
+        ------
+        EvaluateError
+            If node value is None.
+        """
+        if node.value is None:
+            raise EvaluateError('unexpected null literal')
+
+        # if it's numeric, don't add quotes
+        if isinstance(node.value, (int, float)):
+            return str(node.value)
+
+        if isinstance(node.value, str):
+            try:
+                return str(
+                    float(node.value) if '.' in node.value else int(node.value)
+                )
+            except ValueError:
+                pass
+
+        return f'{node.value!r}'
+
+    def _evaluate_identifier(self, node: FilterNode) -> str:
+        """Evaluates an identifier node.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            Identifier value.
+
+        Raises
+        ------
+        EvaluateError
+            If node value is None.
+        """
+        if not node.value:
+            raise EvaluateError('unexpected null identifier')
+
+        return node.value
+
+    def _evaluate_list(self, node: FilterNode, wrap_in_parentheses: bool = True) -> str:
+        """Evaluates a list node.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+        wrap_in_parentheses : bool, optional
+            Whether to wrap the list in parentheses, by default True.
+
+        Returns
+        -------
+        str
+            List value.
+
+        Raises
+        ------
+        EvaluateError
+            If node arguments is None.
+        """
+        if node.arguments is None:
+            raise EvaluateError('unexpected null list')
+
+        values = [self.evaluate(arg) for arg in node.arguments]
+
+        if wrap_in_parentheses:
+            return f"({', '.join(values)})"
+
+        return ', '.join(values)
+
+    def _evaluate_operator(self, node: FilterNode) -> str:
+        """Evaluates an operator node.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            Operator value.
+
+        Raises
+        ------
+        EvaluateError
+            If node value is None.
+        EvaluateError
+            If node left or right is None.
+        EvaluateError
+            If node value is not ``not`` and node left
+            or right is None.
+        """
+        if not node.value:
+            raise EvaluateError('unexpected null operator')
+
+        if node.value == 'not':
+            if not node.right:
+                raise EvaluateError(
+                    'unexpected null operand for operator "not"'
+                )
+
+            return f'not {self.evaluate(node.right)}'
+
+        if not node.left or not node.right:
+            raise EvaluateError(
+                f'unexpected null operand for operator {node.value!r}'
+            )
+
+        return (
+            f'{self.evaluate(node.left)} {node.value} '
+            f'{self.evaluate(node.right)}'
+        )
+
+    def _evaluate_function(self, node: FilterNode) -> str:
+        """Evaluates a function node.
+
+        Parameters
+        ----------
+        node : FilterNode
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            Function value.
+
+        Raises
+        ------
+        EvaluateError
+            If node value is None.
+        """
+        if not node.value:
+            raise EvaluateError('unexpected null function name')
+
+        args = self._evaluate_list(node, wrap_in_parentheses=False)
+        return f'{node.value}({args})'
