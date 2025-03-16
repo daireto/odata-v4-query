@@ -103,6 +103,7 @@ class ODataFilterTokenizer:
 
         Examples
         --------
+        >>> from odata_v4_query import ODataFilterTokenizer
         >>> tokenizer = ODataFilterTokenizer()
         >>> tokens = tokenizer.tokenize("name eq 'John' and age gt 25")
         >>> for token in tokens:

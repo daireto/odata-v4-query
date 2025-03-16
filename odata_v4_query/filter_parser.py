@@ -74,6 +74,14 @@ class ODataFilterParser:
         -------
         FilterNode
             AST representing the parsed filter expression.
+
+        Examples
+        --------
+        >>> from odata_v4_query import ODataFilterParser
+        >>> parser = ODataFilterParser()
+        >>> ast = parser.parse("name eq 'John' and age gt 25")
+        >>> ast
+        FilterNode(type_='operator', value='and', left=FilterNode(...), right=FilterNode(...))
         """
         tokens = self.__tokenizer.tokenize(expr)
         if not tokens:
@@ -100,6 +108,14 @@ class ODataFilterParser:
             If node type is None.
         EvaluateError
             If node type is unknown.
+
+        Examples
+        --------
+        >>> from odata_v4_query import ODataFilterParser
+        >>> parser = ODataFilterParser()
+        >>> ast = parser.parse("name eq 'John' and age gt 25")
+        >>> parser.evaluate(ast)
+        "name eq 'John' and age gt 25"
         """
         if not node.type_:
             raise EvaluateError('node type cannot be None')

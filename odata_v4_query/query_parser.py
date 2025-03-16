@@ -126,6 +126,19 @@ class ODataQueryParser:
         -------
         ODataQueryOptions
             Parsed parameters.
+
+        Examples
+        --------
+        >>> from odata_v4_query import ODataQueryParser
+        >>> parser = ODataQueryParser()
+        >>> url = 'https://example.com/odata?$count=true&$top=10&$skip=20'
+        >>> options = parser.parse_url(url)
+        >>> options.count
+        True
+        >>> options.top
+        10
+        >>> options.skip
+        20
         """
         parsed_url = urlparse(url)
         return self.parse_query_string(parsed_url.query)
@@ -143,6 +156,19 @@ class ODataQueryParser:
         -------
         ODataQueryOptions
             Parsed parameters.
+
+        Examples
+        --------
+        >>> from odata_v4_query import ODataQueryParser
+        >>> parser = ODataQueryParser()
+        >>> query_string = '$count=true&$top=10&$skip=20'
+        >>> options = parser.parse_query_string(query_string)
+        >>> options.count
+        True
+        >>> options.top
+        10
+        >>> options.skip
+        20
         """
         query_params = parse_qs(query_string)
         return self.parse_query_params(query_params)
@@ -161,6 +187,19 @@ class ODataQueryParser:
         -------
         ODataQueryOptions
             Parsed parameters.
+
+        Examples
+        --------
+        >>> from odata_v4_query import ODataQueryParser
+        >>> parser = ODataQueryParser()
+        >>> query_params = {'$count': ['true'], '$top': ['10'], '$skip': ['20']}
+        >>> options = parser.parse_query_params(query_params)
+        >>> options.count
+        True
+        >>> options.top
+        10
+        >>> options.skip
+        20
         """
         options = ODataQueryOptions()
 
@@ -189,6 +228,15 @@ class ODataQueryParser:
         -------
         str
             Filter expression.
+
+        Examples
+        --------
+        >>> from odata_v4_query import ODataQueryParser
+        >>> parser = ODataQueryParser()
+        >>> query_string = "$filter=name eq 'John' and age gt 25"
+        >>> ast = parser.parse_query_string(query_string)
+        >>> parser.evaluate(ast)
+        "name eq 'John' and age gt 25"
         """
         if isinstance(options_or_filter, FilterNode):
             return self.__filter_parser.evaluate(options_or_filter)
