@@ -1,4 +1,3 @@
-import warnings
 from typing import Any, Literal, TypeVar, overload
 
 from pydantic import BaseModel
@@ -8,16 +7,23 @@ from odata_v4_query.query_parser import FilterNode, ODataQueryOptions
 
 try:
     from beanie import Document
-    from beanie.odm.queries.aggregation import AggregationQuery
-    from beanie.odm.queries.find import FindMany
-    from beanie.operators import Or
 except ImportError:
-    warnings.warn(
+    raise RuntimeError(
         'Beanie is not installed. '
         'Install it to use apply_query_options_to_beanie_query()'
     )
 
-FindQueryProjectionType = TypeVar("FindQueryProjectionType", bound=BaseModel)
+from beanie.odm.queries.aggregation import AggregationQuery
+from beanie.odm.queries.find import FindMany
+from beanie.operators import Or
+
+FindQueryProjectionType = TypeVar('FindQueryProjectionType', bound=BaseModel)
+FindType = TypeVar('FindType', bound=Document)
+Query = (
+    FindMany[FindType]
+    | AggregationQuery[dict[str, Any]]
+    | AggregationQuery[FindQueryProjectionType]
+)
 
 ODATA_COMPARISON_OPERATORS = ('eq', 'ne', 'gt', 'ge', 'lt', 'le', 'in', 'nin')
 ODATA_LOGICAL_OPERATORS = ('and', 'or', 'not', 'nor')
@@ -247,18 +253,29 @@ class _BeanieFilterNodeParser:
 
 @overload
 def apply_to_beanie_query(
-    document_or_query: type[Document] | FindMany,
+    document_or_query: type[FindType] | FindMany[FindType],
     options: ODataQueryOptions,
     projection_model: None = None,
     parse_select: Literal[False] = False,
     search_fields: list[str] | None = None,
     fetch_links: bool = False,
-) -> FindMany: ...
+) -> FindMany[FindType]: ...
 
 
 @overload
 def apply_to_beanie_query(
-    document_or_query: type[Document] | FindMany,
+    document_or_query: type[FindType] | FindMany[FindType],
+    options: ODataQueryOptions,
+    projection_model: type[FindQueryProjectionType],
+    parse_select: Literal[False] = False,
+    search_fields: list[str] | None = None,
+    fetch_links: bool = False,
+) -> FindMany[FindQueryProjectionType]: ...
+
+
+@overload
+def apply_to_beanie_query(
+    document_or_query: type[FindType] | FindMany[FindType],
     options: ODataQueryOptions,
     projection_model: None = None,
     parse_select: Literal[True] = True,
@@ -269,7 +286,7 @@ def apply_to_beanie_query(
 
 @overload
 def apply_to_beanie_query(
-    document_or_query: type[Document] | FindMany,
+    document_or_query: type[FindType] | FindMany[FindType],
     options: ODataQueryOptions,
     projection_model: type[FindQueryProjectionType],
     parse_select: Literal[True] = True,
@@ -279,17 +296,13 @@ def apply_to_beanie_query(
 
 
 def apply_to_beanie_query(
-    document_or_query: type[Document] | FindMany,
+    document_or_query: type[FindType] | FindMany[FindType],
     options: ODataQueryOptions,
     projection_model: type[FindQueryProjectionType] | None = None,
     parse_select: bool = False,
     search_fields: list[str] | None = None,
     fetch_links: bool = False,
-) -> (
-    FindMany
-    | AggregationQuery[dict[str, Any]]
-    | AggregationQuery[FindQueryProjectionType]
-):
+) -> Query:
     """Applies OData query options to a Beanie query.
 
     .. note::
@@ -298,15 +311,14 @@ def apply_to_beanie_query(
 
     Parameters
     ----------
-    document_or_query : type[Document] | FindMany
+    document_or_query : type[FindType] | FindMany[FindType]
         Document class or query to apply options to.
         If a class is provided, a new query is created
         by calling ``find()``.
     options : ODataQueryOptions
         Parsed query options.
     projection_model : type[FindQueryProjectionType] | None, optional
-        Projection model to use with ``$select``,
-        by default None.
+        Projection model, by default None.
     parse_select : bool, optional
         If True, ``$select`` is parsed and applied as a projection,
         by default False.
@@ -317,7 +329,7 @@ def apply_to_beanie_query(
 
     Returns
     -------
-    Document
+    Query
         Beanie query with applied options.
 
     Raises
@@ -325,10 +337,10 @@ def apply_to_beanie_query(
     ParseError
         If the filters are empty.
     """
-    if isinstance(document_or_query, type):
-        query = document_or_query.find()
-    else:
+    if isinstance(document_or_query, FindMany):
         query = document_or_query
+    else:
+        query = document_or_query.find()
 
     if options.skip:
         query = query.skip(options.skip)
@@ -367,5 +379,7 @@ def apply_to_beanie_query(
             [{'$project': {field: 1 for field in options.select}}],
             projection_model=projection_model,
         )
+    else:
+        query = query.project(projection_model)
 
     return query
