@@ -1,21 +1,13 @@
 from typing import Any, Literal, TypeVar, overload
 
+from beanie import Document
+from beanie.odm.queries.aggregation import AggregationQuery
+from beanie.odm.queries.find import FindMany
+from beanie.operators import Or
 from pydantic import BaseModel
 
 from odata_v4_query.errors import ParseError, UnexpectedNullOperand
 from odata_v4_query.query_parser import FilterNode, ODataQueryOptions
-
-try:
-    from beanie import Document
-except ImportError:
-    raise RuntimeError(
-        'Beanie is not installed. '
-        'Install it to use apply_query_options_to_beanie_query()'
-    )
-
-from beanie.odm.queries.aggregation import AggregationQuery
-from beanie.odm.queries.find import FindMany
-from beanie.operators import Or
 
 FindQueryProjectionType = TypeVar('FindQueryProjectionType', bound=BaseModel)
 FindType = TypeVar('FindType', bound=Document)
@@ -62,19 +54,19 @@ class _BeanieFilterNodeParser:
         FilterNode
             New filter node containing the MongoDB filter.
         """
-        left = None
-        if filter_node.left:
-            left = self._filter_node_to_beanie_filter(filter_node.left)
-
-        right = None
-        if filter_node.right:
-            right = self._filter_node_to_beanie_filter(filter_node.right)
-
-        if filter_node.type_ == 'operator':
-            return self._parse_operator_node(filter_node, left, right)
-
         if filter_node.type_ == 'function':
             return self._parse_function_node(filter_node)
+
+        if filter_node.type_ == 'operator':
+            left = None
+            if filter_node.left:
+                left = self._filter_node_to_beanie_filter(filter_node.left)
+
+            right = None
+            if filter_node.right:
+                right = self._filter_node_to_beanie_filter(filter_node.right)
+
+            return self._parse_operator_node(filter_node, left, right)
 
         return filter_node
 
@@ -108,7 +100,21 @@ class _BeanieFilterNodeParser:
             If a required operand is None.
         """
         if op_node.value in ODATA_COMPARISON_OPERATORS:
-            if not left or not right or not left.value or not right.value:
+            if not left or not right:
+                raise UnexpectedNullOperand(op_node.value)
+
+            if op_node.value in ('in', 'nin'):
+                if not left.value or not right.arguments:
+                    raise UnexpectedNullOperand(op_node.value)
+
+                right.value = [arg.value for arg in right.arguments]
+                operator = self._to_mongo_comparison_operator(op_node.value)
+                return FilterNode(
+                    type_='value',
+                    value={left.value: {operator: right.value}},
+                )
+
+            if not left.value or not right.value:
                 raise UnexpectedNullOperand(op_node.value)
 
             operator = self._to_mongo_comparison_operator(op_node.value)
@@ -136,7 +142,8 @@ class _BeanieFilterNodeParser:
                     raise UnexpectedNullOperand(op_node.value)
 
                 operator = self._to_mongo_comparison_operator(op_node.value)
-                value = {operator: right.value}
+                field, comparison = right.value.popitem()
+                value = {field: {operator: comparison}}
 
             return FilterNode(type_='value', value=value)
 
@@ -159,6 +166,8 @@ class _BeanieFilterNodeParser:
         Raises
         ------
         ParseError
+            If function name is None.
+        ParseError
             If arguments of the function are empty.
         ParseError
             If arguments count is not 2.
@@ -167,6 +176,9 @@ class _BeanieFilterNodeParser:
         ParseError
             If the function is unknown.
         """
+        if not func_node.value:
+            raise ParseError(f'unexpected null function name: {func_node!r}')
+
         if not func_node.value or not func_node.arguments:
             raise ParseError(
                 f'unexpected empty arguments for function {func_node.value!r}'
@@ -211,7 +223,7 @@ class _BeanieFilterNodeParser:
 
         return FilterNode(type_='value', value=value)
 
-    def _to_mongo_comparison_operator(self, operator: str) -> str:
+    def _to_mongo_comparison_operator(self, operator: str) -> str | None:
         """Converts an OData comparison operator to a MongoDB operator.
 
         Parameters
@@ -223,6 +235,8 @@ class _BeanieFilterNodeParser:
         -------
         str
             MongoDB operator.
+        None
+            If the operator is unknown.
 
         Raises
         ------
@@ -247,8 +261,6 @@ class _BeanieFilterNodeParser:
                 | 'nor'
             ):
                 return f'${operator}'
-            case _:
-                raise ParseError(f'unknown operator: {operator!r}')
 
 
 @overload
