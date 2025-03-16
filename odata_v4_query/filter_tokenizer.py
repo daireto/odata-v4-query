@@ -2,10 +2,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
 
+from .definitions import DEFAULT_FUNCTIONS, DEFAULT_OPERATORS
 from .errors import InvalidNumberError, TokenizeError
 
 
-class TokenType(Enum):
+class TokenType(str, Enum):
     OPERATOR = 'OPERATOR'
     FUNCTION = 'FUNCTION'
     IDENTIFIER = 'IDENTIFIER'
@@ -25,20 +26,7 @@ class Token:
 
 class ODataFilterTokenizerProtocol(Protocol):
 
-    def tokenize(self, expr: str) -> list[Token]:
-        """Converts filter expression string into tokens.
-
-        Parameters
-        ----------
-        expr : str
-            Filter expression to be tokenized.
-
-        Returns
-        -------
-        list[Token]
-            List of tokens extracted from the filter expression.
-        """
-        ...
+    def tokenize(self, expr: str) -> list[Token]: ...
 
 
 class ODataFilterTokenizer:
@@ -72,32 +60,8 @@ class ODataFilterTokenizer:
             Dictionary of supported functions and their arity,
             by default None.
         """
-        self.__operators = operators or {
-            # comparison
-            'eq': 2,  # equals
-            'ne': 2,  # not equals
-            'gt': 2,  # greater than
-            'ge': 2,  # greater than or equals
-            'lt': 2,  # less than
-            'le': 2,  # less than or equals
-            'in': 2,  # included in operator
-            'nin': 2,  # not included in operator
-
-            # logical
-            'and': 2,
-            'or': 2,
-            'not': 1,
-            'nor': 1,
-
-            # collection
-            'has': 2,  # has (includes) operator
-        }
-
-        self.__functions = functions or {
-            'startswith': 2,
-            'endswith': 2,
-            'contains': 2,
-        }
+        self.__operators = operators or DEFAULT_OPERATORS
+        self.__functions = functions or DEFAULT_FUNCTIONS
 
     def set_operators(self, operators: dict[str, int]) -> None:
         """Sets the supported operators.
@@ -107,7 +71,7 @@ class ODataFilterTokenizer:
         operators : dict[str, int]
             Dictionary of supported operators and their arity.
         """
-        self.__operators = operators
+        self.__operators = operators  # pragma: no cover
 
     def set_functions(self, functions: dict[str, int]) -> None:
         """Sets the supported functions.
@@ -117,7 +81,7 @@ class ODataFilterTokenizer:
         functions : dict[str, int]
             Dictionary of supported functions and their arity.
         """
-        self.__functions = functions
+        self.__functions = functions  # pragma: no cover
 
     def tokenize(self, expr: str) -> list[Token]:
         """Converts filter expression string into tokens.
@@ -156,9 +120,15 @@ class ODataFilterTokenizer:
         expr_len = len(expr)
 
         char_handlers = {
-            '(': lambda: self.__tokens.append(Token(TokenType.LPAREN, '(', self.__position)),
-            ')': lambda: self.__tokens.append(Token(TokenType.RPAREN, ')', self.__position)),
-            ',': lambda: self.__tokens.append(Token(TokenType.COMMA, ',', self.__position)),
+            '(': lambda: self.__tokens.append(
+                Token(TokenType.LPAREN, '(', self.__position)
+            ),
+            ')': lambda: self.__tokens.append(
+                Token(TokenType.RPAREN, ')', self.__position)
+            ),
+            ',': lambda: self.__tokens.append(
+                Token(TokenType.COMMA, ',', self.__position)
+            ),
             "'": lambda: self._handle_string_literal(expr),
         }
 
@@ -207,7 +177,9 @@ class ODataFilterTokenizer:
                         )
                     )
                 else:
-                    self.__tokens.append(Token(TokenType.IDENTIFIER, value, pos))
+                    self.__tokens.append(
+                        Token(TokenType.IDENTIFIER, value, pos)
+                    )
                 continue
 
             raise TokenizeError(char, self.__position)
@@ -246,16 +218,24 @@ class ODataFilterTokenizer:
 
         while end_pos < expr_len:
             char = expr[end_pos]
-            if char == "'":
-                if end_pos + 1 < expr_len and expr[end_pos + 1] == "'":
-                    chars.append("'")
-                    end_pos += 2
-                else:
-                    end_pos += 1
+
+            # handle escaped characters
+            if char == '\\':
+                if end_pos + 1 >= expr_len:
                     break
-            else:
+
+                chars.append(expr[end_pos + 1])
+                end_pos += 2
+                continue
+
+            # append non-quote characters
+            if char != "'":
                 chars.append(char)
                 end_pos += 1
+                continue
+
+            # end of string literal
+            break
 
         self.__position = end_pos
         return ''.join(chars), start_pos
@@ -288,20 +268,23 @@ class ODataFilterTokenizer:
             char = expr[end_pos]
             if char.isdigit():
                 end_pos += 1
-            elif char == '.' and not has_decimal:
+            elif char == '.':
+                if has_decimal:
+                    raise InvalidNumberError(
+                        expr[start_pos:end_pos], start_pos
+                    )
+
                 has_decimal = True
                 end_pos += 1
+            elif char.isalpha():
+                raise InvalidNumberError(expr[start_pos:end_pos], start_pos)
             else:
                 break
 
         self.__position = end_pos
 
-        try:
-            value = expr[start_pos:end_pos]
-            number = float(value) if '.' in value else int(value)
-        except ValueError:
-            raise InvalidNumberError(expr[start_pos:end_pos], start_pos)
-
+        value = expr[start_pos:end_pos]
+        number = float(value) if '.' in value else int(value)
         return number, start_pos
 
     def _extract_identifier(self, expr: str) -> tuple[str, int]:
