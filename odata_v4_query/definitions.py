@@ -1,5 +1,8 @@
 """Definitions for OData V4 query options."""
 
+DEFAULT_FORMAT_OPTIONS = ('json', 'xml', 'csv', 'tsv')
+"""Default format options."""
+
 DEFAULT_OPERATORS = {
     # comparison
     'eq': 2,

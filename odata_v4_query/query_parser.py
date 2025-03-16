@@ -2,6 +2,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
 
+from odata_v4_query.definitions import DEFAULT_FORMAT_OPTIONS
+
 from .errors import NoPositiveIntegerValue, UnsupportedFormat
 from .filter_parser import (
     FilterNode,
@@ -74,14 +76,7 @@ class ODataQueryParser:
             '$skip': self._parse_skip,
             '$top': self._parse_top,
         }
-
-        self.__supported_formats = supported_formats or (
-            'json',
-            'xml',
-            'csv',
-            'tsv',
-        )
-
+        self.__supported_formats = supported_formats or DEFAULT_FORMAT_OPTIONS
         self.__filter_parser = filter_parser or ODataFilterParser()
 
     def set_supported_options(
@@ -94,7 +89,7 @@ class ODataQueryParser:
         supported_options : dict[str, OptionCallback]
             Dictionary of supported query options.
         """
-        self.__supported_options = supported_options
+        self.__supported_options = supported_options  # pragma: no cover
 
     def set_supported_formats(self, supported_formats: Sequence[str]) -> None:
         """Sets the supported response formats.
@@ -104,7 +99,7 @@ class ODataQueryParser:
         supported_formats : Sequence[str]
             Sequence of supported response formats.
         """
-        self.__supported_formats = supported_formats
+        self.__supported_formats = supported_formats  # pragma: no cover
 
     def set_filter_parser(
         self, filter_parser: ODataFilterParserProtocol
@@ -116,7 +111,7 @@ class ODataQueryParser:
         filter_parser : ODataFilterParserProtocol
             Filter parser.
         """
-        self.__filter_parser = filter_parser
+        self.__filter_parser = filter_parser  # pragma: no cover
 
     def parse_url(self, url: str) -> ODataQueryOptions:
         """Parses a complete OData URL and
@@ -181,6 +176,27 @@ class ODataQueryParser:
                 parser_func(value, options)
 
         return options
+
+    def evaluate(self, options_or_filter: ODataQueryOptions | FilterNode) -> str:
+        """Evaluates an AST and returns the corresponding expression.
+
+        Parameters
+        ----------
+        options : ODataQueryOptions
+            AST representing the parsed filter expression.
+
+        Returns
+        -------
+        str
+            Filter expression.
+        """
+        if isinstance(options_or_filter, FilterNode):
+            return self.__filter_parser.evaluate(options_or_filter)
+
+        if options_or_filter.filter_:
+            return self.__filter_parser.evaluate(options_or_filter.filter_)
+
+        return ''
 
     def _parse_count(self, value: str, options: ODataQueryOptions) -> None:
         """Parses $count parameter.
@@ -262,9 +278,6 @@ class ODataQueryParser:
                 field, direction = item.rsplit(maxsplit=1)
             else:
                 field = item
-                direction = DEFAULT_DIRECTION
-
-            if not direction:
                 direction = DEFAULT_DIRECTION
 
             orderby_list.append(
