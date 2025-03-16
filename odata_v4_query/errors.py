@@ -2,6 +2,20 @@ class ODataParserError(Exception):
     """Base class for all OData parser errors."""
 
 
+class EvaluateError(ODataParserError, ValueError):
+    """Evaluation error."""
+
+    def __init__(self, message: str) -> None:
+        """Evaluation error.
+
+        Parameters
+        ----------
+        message : str
+            Error message.
+        """
+        super().__init__(message)
+
+
 class InvalidNumberError(ODataParserError, ValueError):
     """Invalid number error."""
 
