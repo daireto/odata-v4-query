@@ -7,7 +7,6 @@ ORM/ODM you want to use.
 **Dependencies**
 
 - ``beanie`` for Beanie ODM support.
-- ``sqlactive`` for SQLActive (SQLAlchemy wrapper) support.
 - ``sqlalchemy`` for SQLAlchemy ORM support.
 
 Example usage::

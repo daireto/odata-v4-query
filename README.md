@@ -3,8 +3,7 @@
 
 A lightweight, simple and fast parser for OData V4 query options supporting
 standard query parameters. Provides helper functions to apply OData V4 query
-options to ORM/ODM queries such as SQLAlchemy and Beanie, and SQLAlchemy
-wrappers such as SQLActive.
+options to ORM/ODM queries such as SQLAlchemy and Beanie.
 
 <!-- omit in toc -->
 ## Table of Contents
@@ -35,14 +34,12 @@ wrappers such as SQLActive.
     - Collection operators: `has`
     - String functions: `startswith`, `endswith`, `contains`
 
-- Utility functions to apply query options to SQLAlchemy, Beanie and
-  SQLActive queries.
+- Utility functions to apply query options to SQLAlchemy and Beanie.
 
 ## Requirements
 
 - `Python>=3.10`
 - `beanie>=1.23.0 (optional, for Beanie ODM support)`
-- `sqlactive>=0.3.0 (optional, for SQLActive support)`
 - `sqlalchemy>=2.0.0 (optional, for SQLAlchemy support)`
 
 ## Installation
