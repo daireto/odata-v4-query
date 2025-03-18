@@ -1,3 +1,4 @@
 beanie>=1.23.0
+mongomock-motor>=0.0.35
 sqlactive>=0.3.0
 sqlalchemy>=2.0.0
