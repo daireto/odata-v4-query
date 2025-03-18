@@ -49,3 +49,9 @@ OPERATOR_PRECEDENCE = {
     'or': 1,
 }
 """Operator precedence."""
+
+ODATA_COMPARISON_OPERATORS = ('eq', 'ne', 'gt', 'ge', 'lt', 'le', 'in', 'nin')
+"""OData comparison operators."""
+
+ODATA_LOGICAL_OPERATORS = ('and', 'or', 'not', 'nor')
+"""OData logical operators."""
