@@ -65,11 +65,11 @@ parser = ODataQueryParser()
 options = parser.parse_url('https://example.com/odata?$count=true&$top=10&$skip=20')
 
 # Parse just the query string
-options = parser.parse_query_string('$filter=name eq \'John\' and age gt 25')
+options = parser.parse_query_string("$filter=name eq 'John' and age gt 25")
 
 # Parse filter expressions
 filter_parser = ODataFilterParser()
-ast = filter_parser.parse('name eq \'John\' and age gt 25')
+ast = filter_parser.parse("name eq 'John' and age gt 25")
 
 # Evaluate filter expressions
 filter_parser.evaluate(ast)
