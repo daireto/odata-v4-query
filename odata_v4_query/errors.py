@@ -66,6 +66,21 @@ class NoPositiveIntegerValue(ODataParserError, ValueError):
         )
 
 
+class NoRootClassFound(ODataParserError, ValueError):
+    """No root class found error."""
+
+    def __init__(self, query: str, option_name: str) -> None:
+        """No root class found error.
+
+        Parameters
+        ----------
+        query : str
+            Query.
+        """
+        super().__init__(f'could not find root class of query: {query!r}')
+        self.add_note(f'cannot apply {option_name} option')
+
+
 class TokenizeError(ODataParserError, ValueError):
     """Tokenizer error."""
 
