@@ -1,12 +1,6 @@
-import os
-
 from beanie import Document, init_beanie
-from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
+from mongomock_motor import AsyncMongoMockClient
 from pydantic import BaseModel
-
-load_dotenv()
-MONGO_CONN_STR = os.getenv('MONGO_CONN_STR')
 
 
 class User(Document):
@@ -22,8 +16,9 @@ class UserProjection(BaseModel):
 
 
 async def get_client():
-    client = AsyncIOMotorClient(MONGO_CONN_STR)
-    await init_beanie(database=client.db_name, document_models=[User])
+    client = AsyncMongoMockClient()
+    db_name = client.get_database(name='db')
+    await init_beanie(database=db_name, document_models=[User])  # type: ignore
     return client
 
 
