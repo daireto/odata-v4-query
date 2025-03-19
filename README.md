@@ -1,6 +1,24 @@
 <!-- omit in toc -->
 # OData V4 Query
 
+<p align="center">
+    <a href="https://pypi.org/project/odata-v4-query" target="_blank">
+        <img src="https://img.shields.io/pypi/pyversions/odata-v4-query" alt="Supported Python versions">
+    </a>
+    <a href="https://pypi.org/project/odata-v4-query" target="_blank">
+        <img src="https://img.shields.io/pypi/v/odata-v4-query" alt="Package version">
+    </a>
+    <a href="https://github.com/daireto/odata-v4-query/actions" target="_blank">
+        <img src="https://github.com/daireto/odata-v4-query/actions/workflows/publish.yml/badge.svg" alt="Publish">
+    </a>
+    <a href='https://coveralls.io/github/daireto/odata-v4-query?branch=main'>
+        <img src='https://coveralls.io/repos/github/daireto/odata-v4-query/badge.svg?branch=main' alt='Coverage Status' />
+    </a>
+    <a href="/LICENSE" target="_blank">
+        <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
+    </a>
+</p>
+
 A lightweight, simple and fast parser for OData V4 query options supporting
 standard query parameters. Provides helper functions to apply OData V4 query
 options to ORM/ODM queries such as SQLAlchemy, PyMongo and Beanie.
