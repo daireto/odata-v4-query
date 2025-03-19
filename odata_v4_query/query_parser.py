@@ -1,5 +1,6 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
 from odata_v4_query.definitions import DEFAULT_FORMAT_OPTIONS
@@ -17,7 +18,7 @@ OptionCallback = Callable[[str, 'ODataQueryOptions'], None]
 @dataclass
 class OrderbyItem:
     field: str
-    direction: str
+    direction: Literal['asc', 'desc']
 
 
 @dataclass
@@ -216,7 +217,9 @@ class ODataQueryParser:
 
         return options
 
-    def evaluate(self, options_or_filter: ODataQueryOptions | FilterNode) -> str:
+    def evaluate(
+        self, options_or_filter: ODataQueryOptions | FilterNode
+    ) -> str:
         """Evaluates an AST and returns the corresponding expression.
 
         Parameters
@@ -329,7 +332,10 @@ class ODataQueryParser:
                 direction = DEFAULT_DIRECTION
 
             orderby_list.append(
-                OrderbyItem(field=field.strip(), direction=direction.strip())
+                OrderbyItem(
+                    field=field.strip(),
+                    direction=direction.strip(),  # type: ignore
+                )
             )
 
         options.orderby = orderby_list
