@@ -112,7 +112,5 @@ class MongoDBFilterNodeParser(BaseFilterNodeParser):
                 | 'nor'
             ):
                 return f'${operator}'
-            case _:
-                raise ParseError(
-                    f'unknown operator: {operator!r}'
-                )  # pragma: no cover
+            case _:  # pragma: no cover
+                raise ParseError(f'unknown operator: {operator!r}')  # pragma: no cover

@@ -125,7 +125,7 @@ class SQLAlchemyFilterNodeParser(BaseFilterNodeParser):
     def parse_comparison_operators(
         self, left: Any, op_node: Any, right: Any
     ) -> FilterNode:
-        if right is None:
+        if right is None or right == 'null':
             if op_node == 'eq':
                 # type_='value', value=f'{left} IS NULL'
                 return FilterNode(type_='value', value=eq(left, None))
@@ -179,7 +179,5 @@ class SQLAlchemyFilterNodeParser(BaseFilterNodeParser):
                 return or_  # OR
             case 'not' | 'nor':
                 return cast(OperatorType, not_)  # NOT
-            case _:
-                raise ParseError(
-                    f'unknown operator: {operator!r}'
-                )  # pragma: no cover
+            case _:  # pragma: no cover
+                raise ParseError(f'unknown operator: {operator!r}')  # pragma: no cover
