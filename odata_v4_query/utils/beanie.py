@@ -198,10 +198,10 @@ def apply_to_beanie_query(
         )
 
     if options.orderby:
-        sort_args: list[str] = []
+        sort_args = []
         for item in options.orderby:
-            sort_symbol = '-' if item.direction == 'desc' else '+'
-            sort_args.append(f'{sort_symbol}{item.field}')
+            direction = '-' if item.direction == 'desc' else '+'
+            sort_args.append(f'{direction}{item.field}')
         query = query.sort(*sort_args)
 
     if options.select and parse_select:
