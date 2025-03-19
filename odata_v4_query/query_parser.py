@@ -3,8 +3,7 @@ from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
-from odata_v4_query.definitions import DEFAULT_FORMAT_OPTIONS
-
+from .definitions import DEFAULT_FORMAT_OPTIONS
 from .errors import NoPositiveIntegerValue, UnsupportedFormat
 from .filter_parser import (
     FilterNode,
