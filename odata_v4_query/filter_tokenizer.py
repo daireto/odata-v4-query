@@ -131,6 +131,7 @@ class ODataFilterTokenizer:
                 Token(TokenType.COMMA, ',', self.__position)
             ),
             "'": lambda: self._handle_string_literal(expr),
+            '"': lambda: self._handle_string_literal(expr),
         }
 
         while self.__position < expr_len:
@@ -230,7 +231,7 @@ class ODataFilterTokenizer:
                 continue
 
             # append non-quote characters
-            if char != "'":
+            if char != "'" and char != '"':
                 chars.append(char)
                 end_pos += 1
                 continue
