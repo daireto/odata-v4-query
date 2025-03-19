@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "odata-v4-query"
 dynamic = ["version"]
 authors = [{ name = "Dairo Mosquera", email = "dairoandres115@outlook.com" }]
-description = "A lightweight, simple and fast parser for OData V4 query options supporting standard query parameters."
+description = "A lightweight, simple and fast parser for OData V4 query options supporting standard query parameters. Provides helper functions to apply OData V4 query options to ORM/ODM queries such as SQLAlchemy, PyMongo and Beanie."
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = [
@@ -26,6 +26,16 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 dependencies = []
+
+[project.optional-dependencies]
+all = [
+    "beanie>=1.23.0",
+    "pymongo>=4.3.3",
+    "sqlalchemy>=2.0.0",
+]
+beanie = ["beanie>=1.23.0"]
+pymongo = ["pymongo>=4.3.3"]
+sqlalchemy = ["sqlalchemy>=2.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/daireto/odata-v4-query"
