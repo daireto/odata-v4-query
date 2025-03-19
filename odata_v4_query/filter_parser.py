@@ -36,15 +36,25 @@ class ODataFilterParser:
     __tokenizer: ODataFilterTokenizerProtocol
     """Tokenizer for the filter expression."""
 
-    def __init__(self, tokenizer: ODataFilterTokenizerProtocol | None = None):
+    parse_null_identifier: bool
+    """Whether to parse the null identifier."""
+
+    def __init__(
+        self,
+        tokenizer: ODataFilterTokenizerProtocol | None = None,
+        parse_null_identifier: bool = True,
+    ):
         """Parser for OData V4 filter expressions.
 
         Parameters
         ----------
         tokenizer : ODataFilterTokenizerProtocol | None, optional
             Tokenizer, by default None.
+        parse_null_identifier : bool, optional
+            Whether to parse the null identifier, by default True.
         """
         self.__tokenizer = tokenizer or ODataFilterTokenizer()
+        self.parse_null_identifier = parse_null_identifier
 
     def set_tokenizer(self, tokenizer: ODataFilterTokenizerProtocol) -> None:
         """Sets the tokenizer.
@@ -57,7 +67,7 @@ class ODataFilterParser:
         self.__tokenizer = tokenizer  # pragma: no cover
 
     @lru_cache(maxsize=128)
-    def parse(self, expr: str, parse_null: bool = False) -> FilterNode:
+    def parse(self, expr: str) -> FilterNode:
         """Parses a filter expression and returns an AST.
 
         Results are cached for better performance on
@@ -67,8 +77,6 @@ class ODataFilterParser:
         ----------
         expr : str
             Filter expression to be parsed.
-        parse_null : bool, optional
-            Whether to parse the null identifier, by default False.
 
         Returns
         -------
@@ -87,7 +95,7 @@ class ODataFilterParser:
         if not tokens:
             return FilterNode(type_='value')
 
-        return self._parse_expression(tokens, parse_null=parse_null)
+        return self._parse_expression(tokens)
 
     def evaluate(self, node: FilterNode) -> str:
         """Evaluates an AST and returns the corresponding expression.
@@ -139,7 +147,6 @@ class ODataFilterParser:
         self,
         tokens: list[Token],
         precedence: int = 0,
-        parse_null: bool = False,
     ) -> FilterNode:
         """Parses an expression using precedence climbing.
 
@@ -155,8 +162,6 @@ class ODataFilterParser:
         precedence : int, optional
             Minimum operator precedence level to consider,
             by default 0.
-        parse_null : bool, optional
-            Whether to parse the null identifier, by default False.
 
         Returns
         -------
@@ -178,7 +183,7 @@ class ODataFilterParser:
             recursively parse the right side
         4. Otherwise return the current expression
         """
-        left = self._parse_primary(tokens, parse_null)
+        left = self._parse_primary(tokens)
 
         while tokens:
             token = tokens[0]
@@ -202,9 +207,7 @@ class ODataFilterParser:
 
         return left
 
-    def _parse_primary(
-        self, tokens: list[Token], parse_null: bool = False
-    ) -> FilterNode:
+    def _parse_primary(self, tokens: list[Token]) -> FilterNode:
         """Parses a primary expression (literal, identifier,
         function call, or operator).
 
@@ -212,8 +215,6 @@ class ODataFilterParser:
         ----------
         tokens : list[Token]
             List of tokens extracted from the filter expression.
-        parse_null : bool, optional
-            Whether to parse the null identifier, by default False.
 
         Returns
         -------
@@ -243,7 +244,7 @@ class ODataFilterParser:
             return FilterNode(type_='literal', value=token.value)
 
         elif token.type_ == TokenType.IDENTIFIER:
-            if token.value == 'null' and parse_null:
+            if token.value == 'null' and self.parse_null_identifier:
                 return FilterNode(type_='identifier', value=None)
 
             return FilterNode(type_='identifier', value=token.value)
@@ -401,12 +402,17 @@ class ODataFilterParser:
         EvaluateError
             If node value is None.
         """
-        if not node.value:
+        if node.value is None:
+            if self.parse_null_identifier:
+                return 'null'
+
             raise EvaluateError('unexpected null identifier')
 
         return node.value
 
-    def _evaluate_list(self, node: FilterNode, wrap_in_parentheses: bool = True) -> str:
+    def _evaluate_list(
+        self, node: FilterNode, wrap_in_parentheses: bool = True
+    ) -> str:
         """Evaluates a list node.
 
         Parameters
