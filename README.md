@@ -49,6 +49,7 @@ options to ORM/ODM queries such as SQLAlchemy, PyMongo and Beanie.
     - `$select` - Select specific fields
     - `$skip` - Skip N items
     - `$top` - Limit to N items
+    - `$page` - Page number
 
 - Comprehensive filter expression support:
     - Comparison operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `in`, `nin`
@@ -113,7 +114,14 @@ filter_parser.evaluate(ast)
 You to need to install the [required dependencies](#requirements) for the
 ORM/ODM you want to use.
 
+> [!NOTE]
+> If the `$page` option is used, it is converted to `$skip` and `$top`.
+> If `$top` is not provided, it defaults to 100. The `$skip` is computed as
+> `(page - 1) * top`. If `$skip` is provided, it is overwritten.
+
 ### Beanie
+
+Use the `apply_to_beanie_query()` function to apply options to a Beanie query.
 
 ```python
 from beanie import Document
@@ -139,11 +147,45 @@ query = User.find()
 query = apply_to_beanie_query(options, query)
 ```
 
+The `$search` option is only supported if `search_fields` is provided.
+
+```python
+options = parser.parse_query_string('$search=John')
+
+# Search "John" in "name" and "email" fields
+query = apply_to_beanie_query(options, User, search_fields=['name', 'email'])
+```
+
+The `$select` option is only supported if `parse_select` is True.
+If `projection_model` is provided, the results are projected with a Pydantic
+model, otherwise a dictionary.
+
+```python
+from pydantic import BaseModel
+
+class UserProjection(BaseModel):
+    name: str
+    email: str
+
+options = parser.parse_query_string("$select=name,email")
+
+# Project as a dictionary (default)
+query = apply_to_beanie_query(options, User, parse_select=True)
+
+# Project using a Pydantic model
+query = apply_to_beanie_query(
+    options, User, parse_select=True, projection_model=UserProjection
+)
+```
+
 > [!NOTE]
 > The `$count`, `$expand` and `$format` options won't be applied.
 > You need to handle them manually.
 
 ### PyMongo
+
+Use the `get_query_from_options()` function to get a MongoDB query from options
+to be applied to a PyMongo query.
 
 ```python
 from pymongo import MongoClient, ASCENDING, DESCENDING
@@ -175,11 +217,33 @@ db.users.find(
 )
 ```
 
+The `$search` option is only supported if `search_fields` is provided.
+It overrides the `$filter` option.
+
+```python
+options = parser.parse_query_string('$search=John')
+
+# Search "John" in "name" and "email" fields
+query = get_query_from_options(options, search_fields=['name', 'email'])
+```
+
+The `$select` option is only supported if `parse_select` is True.
+
+```python
+options = parser.parse_query_string("$select=name,email")
+
+# Parse $select option
+query = get_query_from_options(options, parse_select=True)
+```
+
 > [!NOTE]
 > The `$count`, `$expand` and `$format` options won't be applied.
 > You need to handle them manually.
 
 ### SQLAlchemy
+
+Use the `apply_to_sqlalchemy_query()` function to apply options to a SQLAlchemy
+query.
 
 ```python
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -203,6 +267,28 @@ query = apply_to_sqlalchemy_query(options, User)
 # Apply options to an existing query
 query = select(User)
 query = apply_to_sqlalchemy_query(options, query)
+```
+
+The `$search` option is only supported if `search_fields` is provided.
+
+```python
+options = parser.parse_query_string('$search=John')
+
+# Search "John" in "name" and "email" fields
+query = apply_to_sqlalchemy_query(
+    options, User, search_fields=['name', 'email']
+)
+```
+
+The `$expand` option performs a
+[joined eager loading](https://docs.sqlalchemy.org/en/14/orm/loading_relationships.html#sqlalchemy.orm.joinedload)
+using left outer join.
+
+```python
+options = parser.parse_query_string('$expand=posts')
+
+# Perform joined eager loading on "posts"
+query = apply_to_sqlalchemy_query(options, User)
 ```
 
 > [!NOTE]
