@@ -31,6 +31,7 @@ class ODataQueryOptions:
     select: list[str] | None = None
     skip: int | None = None
     top: int | None = None
+    page: int | None = None
 
 
 class ODataQueryParser:
@@ -76,6 +77,7 @@ class ODataQueryParser:
             '$select': self._parse_select,
             '$skip': self._parse_skip,
             '$top': self._parse_top,
+            '$page': self._parse_page,
         }
         self.__supported_formats = supported_formats or DEFAULT_FORMAT_OPTIONS
         self.__filter_parser = filter_parser or ODataFilterParser()
@@ -405,6 +407,27 @@ class ODataQueryParser:
             assert options.top >= 0
         except (AssertionError, ValueError, TypeError):
             raise NoPositiveIntegerValue('$top', value)
+
+    def _parse_page(self, value: str, options: ODataQueryOptions) -> None:
+        """Parses $page parameter.
+
+        Parameters
+        ----------
+        value : str
+            Value of the parameter.
+        options : ODataQueryOptions
+            Current query options object.
+
+        Raises
+        ------
+        NoPositiveIntegerValue
+            If the value is not a positive integer.
+        """
+        try:
+            options.page = int(value)
+            assert options.page >= 0
+        except (AssertionError, ValueError, TypeError):
+            raise NoPositiveIntegerValue('$page', value)
 
     def _split_by_comma(self, value: str) -> list[str]:
         """Splits a string by comma.
