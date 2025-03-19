@@ -3,7 +3,7 @@
 
 A lightweight, simple and fast parser for OData V4 query options supporting
 standard query parameters. Provides helper functions to apply OData V4 query
-options to ORM/ODM queries such as SQLAlchemy and Beanie.
+options to ORM/ODM queries such as SQLAlchemy, PyMongo and Beanie.
 
 <!-- omit in toc -->
 ## Table of Contents
@@ -38,9 +38,10 @@ options to ORM/ODM queries such as SQLAlchemy and Beanie.
 
 ## Requirements
 
-- `Python>=3.10`
-- `beanie>=1.23.0 (optional, for Beanie ODM support)`
-- `sqlalchemy>=2.0.0 (optional, for SQLAlchemy support)`
+- `Python 3.10+`
+- `beanie 1.23+ (optional, for Beanie ODM utils)`
+- `pymongo 4.3+ (optional, for PyMongo utils)`
+- `sqlalchemy 2.0+ (optional, for SQLAlchemy utils)`
 
 ## Installation
 

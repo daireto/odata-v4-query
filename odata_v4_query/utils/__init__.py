@@ -6,8 +6,9 @@ ORM/ODM you want to use.
 
 **Dependencies**
 
-- ``beanie`` for Beanie ODM support.
-- ``sqlalchemy`` for SQLAlchemy ORM support.
+- ``beanie`` for Beanie ODM utils.
+- ``pymongo`` for PyMongo ODM utils.
+- ``sqlalchemy`` for SQLAlchemy ORM utils.
 
 Example usage::
 

@@ -3,7 +3,7 @@
 
 A lightweight, simple and fast parser for OData V4 query options supporting
 standard query parameters. Provides helper functions to apply OData V4 query
-options to ORM/ODM queries such as SQLAlchemy and Beanie.
+options to ORM/ODM queries such as SQLAlchemy, PyMongo and Beanie.
 
 Visit the `repository <https://github.com/daireto/odata-v4-query>`_
 for more information.
