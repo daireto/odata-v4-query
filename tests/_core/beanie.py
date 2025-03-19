@@ -17,13 +17,12 @@ class UserProjection(BaseModel):
 
 async def get_client():
     client = AsyncMongoMockClient()
-    db_name = client.get_database(name='db')
-    await init_beanie(database=db_name, document_models=[User])  # type: ignore
+    db = client['db']
+    await init_beanie(database=db, document_models=[User])  # type: ignore
     return client
 
 
 async def seed_data():
-    await User.find().delete()
     await User(
         name='John',
         email='john@example.com',

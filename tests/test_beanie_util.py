@@ -6,7 +6,7 @@ from odata_v4_query.filter_parser import FilterNode
 from odata_v4_query.query_parser import ODataQueryOptions, ODataQueryParser
 from odata_v4_query.utils.beanie import apply_to_beanie_query
 
-from ._beanie_core import User, UserProjection, get_client, seed_data
+from ._core.beanie import User, UserProjection, get_client, seed_data
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -23,7 +23,6 @@ class TestBeanie:
 
     async def test_skip(self):
         users_count = len(await User.find().to_list())
-
         options = self.parser.parse_query_string('$skip=2')
         query = apply_to_beanie_query(options, User.find())
         result = await query.to_list()
@@ -49,6 +48,13 @@ class TestBeanie:
         assert result[0].name == 'John'
 
         options = self.parser.parse_query_string(
+            '$filter=age lt 25 or age gt 35'
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 4
+
+        options = self.parser.parse_query_string(
             "$filter=name in ('Eve', 'Frank')"
         )
         query = apply_to_beanie_query(options, User)
@@ -56,6 +62,37 @@ class TestBeanie:
         assert len(result) == 2
         assert result[0].name == 'Eve'
         assert result[1].name == 'Frank'
+
+        options = self.parser.parse_query_string(
+            "$filter=name nin ('Eve', 'Frank')"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 8
+
+        options = self.parser.parse_query_string(
+            "$filter=name ne 'John' and name ne 'Jane'"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 8
+
+        options = self.parser.parse_query_string(
+            "$filter=not name eq 'John' and not name eq 'Jane'"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 8
+
+        options = self.parser.parse_query_string('$filter=name eq null')
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 0
+
+        options = self.parser.parse_query_string('$filter=name ne null')
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 10
 
         # string functions
         options = self.parser.parse_query_string(
@@ -67,7 +104,9 @@ class TestBeanie:
         assert result[0].name == 'John'
         assert result[1].name == 'Jane'
 
-        options = self.parser.parse_query_string("$filter=endswith(name, 'e')")
+        options = self.parser.parse_query_string(
+            "$filter=endswith(name, 'e')"
+        )
         query = apply_to_beanie_query(options, User)
         result = await query.to_list()
         assert len(result) == 5

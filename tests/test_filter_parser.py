@@ -63,11 +63,12 @@ class TestFilterParser:
     def test_parse_null_identifier(self):
         ast = self.parser.parse('null')
         assert ast.type_ == 'identifier'
-        assert ast.value == 'null'
-
-        ast = self.parser.parse('null', parse_null=True)
-        assert ast.type_ == 'identifier'
         assert ast.value is None
+
+        parser = ODataFilterParser(parse_null_identifier=False)
+        ast = parser.parse('null')
+        assert ast.type_ == 'identifier'
+        assert ast.value == 'null'
 
     def test_parse_function(self):
         ast = self.parser.parse("startswith(name, 'J')")
@@ -145,32 +146,34 @@ class TestFilterParser:
 
         # null literal
         with pytest.raises(EvaluateError):
-            self.parser.evaluate(FilterNode(type_='literal'))  # type: ignore
+            self.parser.evaluate(FilterNode(type_='literal'))
 
         # null identifier
+        assert self.parser.evaluate(FilterNode(type_='identifier')) == 'null'
         with pytest.raises(EvaluateError):
-            self.parser.evaluate(FilterNode(type_='identifier'))  # type: ignore
+            parser = ODataFilterParser(parse_null_identifier=False)
+            parser.evaluate(FilterNode(type_='identifier'))
 
         # null list
         with pytest.raises(EvaluateError):
-            self.parser.evaluate(FilterNode(type_='list'))  # type: ignore
+            self.parser.evaluate(FilterNode(type_='list'))
 
         # null operator
         with pytest.raises(EvaluateError):
-            self.parser.evaluate(FilterNode(type_='operator'))  # type: ignore
+            self.parser.evaluate(FilterNode(type_='operator'))
 
         # null right operand for not operator
         with pytest.raises(EvaluateError):
-            self.parser.evaluate(FilterNode(type_='operator', value='not'))  # type: ignore
+            self.parser.evaluate(FilterNode(type_='operator', value='not'))
 
         # null operand for operator
         with pytest.raises(EvaluateError):
-            self.parser.evaluate(FilterNode(type_='operator', value='eq'))  # type: ignore
+            self.parser.evaluate(FilterNode(type_='operator', value='eq'))
 
         # null function
         with pytest.raises(EvaluateError):
-            self.parser.evaluate(FilterNode(type_='function'))  # type: ignore
+            self.parser.evaluate(FilterNode(type_='function'))
 
         # null function arguments
         with pytest.raises(EvaluateError):
-            self.parser.evaluate(FilterNode(type_='function', value='startswith'))  # type: ignore
+            self.parser.evaluate(FilterNode(type_='function', value='startswith'))
