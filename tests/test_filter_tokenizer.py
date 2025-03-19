@@ -12,6 +12,9 @@ class TestFilterTokenizer:
         tokens = self.tokenizer.tokenize("name eq 'John' and age gt 25")
         assert len(tokens) == 7
 
+        tokens = self.tokenizer.tokenize('name eq "John" and age gt 25')
+        assert len(tokens) == 7
+
         tokens = self.tokenizer.tokenize("name eq 'D\\'Angelo' and age gt 25")
         assert len(tokens) == 7
 
