@@ -3,21 +3,22 @@
 See ``apply_to_sqlalchemy_query()`` for more information.
 """
 
-from typing import Literal, TypeVar, overload
-
 try:
     from sqlalchemy.orm import joinedload
     from sqlalchemy.sql import Select, or_, select
-except ImportError:
+except ImportError:  # pragma: no cover
     raise ImportError(
         'The sqlalchemy dependency is not installed. '
         'Install it with `pip install odata-v4-query[sqlalchemy]` '
         'or install it directly with `pip install sqlalchemy`.'
-    )
+    )  # pragma: no cover
+
+from typing import Literal, TypeVar, overload
 
 from odata_v4_query.errors import NoRootClassFound
 from odata_v4_query.query_parser import ODataQueryOptions
 
+from ._func import compute_skip_from_page
 from .filter_parsers.sql_filter_parser import (
     FilterType,
     SQLAlchemyFilterNodeParser,
@@ -148,6 +149,18 @@ def apply_to_sqlalchemy_query(
 ) -> ParsedQuery:
     """Applies OData query options to a SQLAlchemy query.
 
+    If the ``$page`` option is used, it is converted to ``$skip``
+    and ``$top``. If ``$top`` is not provided, it defaults to 100.
+    The ``$skip`` is computed as ``(page - 1) * top``. If ``$skip``
+    is provided, it is overwritten.
+
+    The ``$search`` option is only supported if ``search_fields``
+    is provided.
+
+    The ``$expand`` option performs a
+    `joined eager loading <https://docs.sqlalchemy.org/en/14/orm/loading_relationships.html#sqlalchemy.orm.joinedload>`_
+    using left outer join.
+
     .. note::
         The ``$count`` and ``$format`` options won't be applied.
         You need to handle them manually.
@@ -203,6 +216,8 @@ def apply_to_sqlalchemy_query(
     ...     search_fields=['name', 'email']
     ... )
     """
+    compute_skip_from_page(options)
+
     if isinstance(model_or_query, Select):
         query = model_or_query
         root_cls = get_query_root_cls(query)

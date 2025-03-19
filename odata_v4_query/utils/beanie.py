@@ -3,24 +3,25 @@
 See ``apply_to_beanie_query()`` for more information.
 """
 
-from typing import Any, Literal, TypeVar, overload
-
 try:
     from beanie import Document
     from beanie.odm.queries.aggregation import AggregationQuery
     from beanie.odm.queries.find import FindMany
     from beanie.operators import Or
-except ImportError:
+except ImportError:  # pragma: no cover
     raise ImportError(
         'The beanie dependency is not installed. '
         'Install it with `pip install odata-v4-query[beanie]` '
         'or install it directly with `pip install beanie`.'
-    )
+    )  # pragma: no cover
+
+from typing import Any, Literal, TypeVar, overload
 
 from pydantic import BaseModel
 
 from odata_v4_query.query_parser import ODataQueryOptions
 
+from ._func import compute_skip_from_page
 from .filter_parsers.mongo_filter_parser import MongoDBFilterNodeParser
 
 FindQueryProjectionType = TypeVar('FindQueryProjectionType', bound=BaseModel)
@@ -86,13 +87,17 @@ def apply_to_beanie_query(
 ) -> ParsedQuery:
     """Applies OData query options to a Beanie query.
 
-    If ``parse_select`` is True, ``$select`` is applied and a
-    ``beanie.odm.queries.aggregation.AggregationQuery`` is returned.
-    Otherwise, a ``beanie.odm.queries.find.FindMany`` is returned.
+    If the ``$page`` option is used, it is converted to ``$skip``
+    and ``$top``. If ``$top`` is not provided, it defaults to 100.
+    The ``$skip`` is computed as ``(page - 1) * top``. If ``$skip``
+    is provided, it is overwritten.
 
-    When using ``$select`` with ``parse_select=True``,
-    the ``projection_model`` is used to project the results
-    with a Pydantic model.
+    The ``$search`` option is only supported if ``search_fields``
+    is provided.
+
+    The ``$select`` option is only supported if ``parse_select``
+    is True. If ``projection_model`` is provided, the results
+    are projected with a Pydantic model, otherwise a dictionary.
 
     .. note::
         The ``$count``, ``$expand`` and ``$format`` options
@@ -178,6 +183,8 @@ def apply_to_beanie_query(
     ...     fetch_links=True
     ... )
     """
+    compute_skip_from_page(options)
+
     if isinstance(document_or_query, FindMany):
         query = document_or_query
     else:

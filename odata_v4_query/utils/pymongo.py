@@ -1,16 +1,23 @@
-from typing import Any
+"""Utility function for getting MongoDB query from OData query options
+to be applied to a PyMongo query.
+
+See ``get_query_from_options()`` for more information.
+"""
 
 try:
     from pymongo import ASCENDING, DESCENDING
-except ImportError:
+except ImportError:  # pragma: no cover
     raise ImportError(
         'The pymongo dependency is not installed. '
         'Install it with `pip install odata-v4-query[pymongo]` '
         'or install it directly with `pip install pymongo`.'
-    )
+    )  # pragma: no cover
+
+from typing import Any
 
 from odata_v4_query.query_parser import ODataQueryOptions
 
+from ._func import compute_skip_from_page
 from .filter_parsers.mongo_filter_parser import MongoDBFilterNodeParser
 
 
@@ -80,6 +87,17 @@ def get_query_from_options(
 ) -> PyMongoQuery:
     """Get a PyMongo query from OData query options.
 
+    If the ``$page`` option is used, it is converted to ``$skip``
+    and ``$top``. If ``$top`` is not provided, it defaults to 100.
+    The ``$skip`` is computed as ``(page - 1) * top``. If ``$skip``
+    is provided, it is overwritten.
+
+    The ``$search`` option is only supported if ``search_fields``
+    is provided. It overrides the ``$filter`` option.
+
+    The ``$select`` option is only supported if ``parse_select``
+    is True.
+
     .. note::
         The ``$count``, ``$expand`` and ``$format`` options
         won't be applied. You need to handle them manually.
@@ -131,6 +149,8 @@ def get_query_from_options(
     ...     parse_select=True
     ... )
     """
+    compute_skip_from_page(options)
+
     query = PyMongoQuery()
 
     if options.skip:
