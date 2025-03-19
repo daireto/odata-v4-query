@@ -88,7 +88,7 @@ def apply_to_beanie_query(
 
     .. note::
         The ``$count``, ``$expand`` and ``$format`` options
-        are not supported.
+        won't be applied. You need to handle them manually.
 
     Parameters
     ----------

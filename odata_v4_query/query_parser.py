@@ -63,7 +63,8 @@ class ODataQueryParser:
         supported_formats : Sequence[str] | None, optional
             Sequence of supported response formats, by default None.
         filter_parser : ODataFilterParserProtocol | None, optional
-            Filter parser, by default None.
+            Filter parser, by default, it uses an instance
+            of ``ODataFilterParser``.
         """
         self.__supported_options = supported_options or {
             '$count': self._parse_count,

@@ -75,7 +75,7 @@ def get_query_from_options(
 
     .. note::
         The ``$count``, ``$expand`` and ``$format`` options
-        are not supported.
+        won't be applied. You need to handle them manually.
 
     Parameters
     ----------

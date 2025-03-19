@@ -142,7 +142,8 @@ def apply_to_sqlalchemy_query(
     """Applies OData query options to a SQLAlchemy query.
 
     .. note::
-        The ``$count`` and ``$format`` options are not supported.
+        The ``$count`` and ``$format`` options won't be applied.
+        You need to handle them manually.
 
     Parameters
     ----------

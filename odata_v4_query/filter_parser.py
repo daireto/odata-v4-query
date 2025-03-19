@@ -49,7 +49,8 @@ class ODataFilterParser:
         Parameters
         ----------
         tokenizer : ODataFilterTokenizerProtocol | None, optional
-            Tokenizer, by default None.
+            Tokenizer, by default, it uses an instance of
+            ``ODataFilterTokenizer``.
         parse_null_identifier : bool, optional
             Whether to parse the null identifier, by default True.
         """
