@@ -1,6 +1,13 @@
 from typing import Any
 
-from pymongo import ASCENDING, DESCENDING
+try:
+    from pymongo import ASCENDING, DESCENDING
+except ImportError:
+    raise ImportError(
+        'The pymongo dependency is not installed. '
+        'Install it with `pip install odata-v4-query[pymongo]` '
+        'or install it directly with `pip install pymongo`.'
+    )
 
 from odata_v4_query.query_parser import ODataQueryOptions
 
@@ -91,6 +98,38 @@ def get_query_from_options(
     -------
     PyMongoQuery
         PyMongo query.
+
+    Examples
+    --------
+    Usage:
+    >>> from odata_v4_query import ODataQueryParser
+    >>> from odata_v4_query.utils.pymongo import get_query_from_options
+    >>> parser = ODataQueryParser()
+    >>> options = parser.parse_query_string('$top=10&$skip=20')
+    >>> query = get_query_from_options(options)
+
+    Apply query to collection:
+    >>> db.users.find(**query)
+    >>> # or
+    >>> db.users.find(
+    ...     skip=query.skip,
+    ...     limit=query.limit,
+    ...     filter=query.filter,
+    ...     sort=query.sort,
+    ...     projection=query.projection,
+    ... )
+
+    Parsing ``$search`` option:
+    >>> query = get_query_from_options(
+    ...     options,
+    ...     search_fields=['name', 'email']
+    ... )
+
+    Parsing ``$select`` option:
+    >>> query = get_query_from_options(
+    ...     options,
+    ...     parse_select=True
+    ... )
     """
     query = PyMongoQuery()
 

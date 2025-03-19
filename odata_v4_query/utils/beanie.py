@@ -5,10 +5,18 @@ See ``apply_to_beanie_query()`` for more information.
 
 from typing import Any, Literal, TypeVar, overload
 
-from beanie import Document
-from beanie.odm.queries.aggregation import AggregationQuery
-from beanie.odm.queries.find import FindMany
-from beanie.operators import Or
+try:
+    from beanie import Document
+    from beanie.odm.queries.aggregation import AggregationQuery
+    from beanie.odm.queries.find import FindMany
+    from beanie.operators import Or
+except ImportError:
+    raise ImportError(
+        'The beanie dependency is not installed. '
+        'Install it with `pip install odata-v4-query[beanie]` '
+        'or install it directly with `pip install beanie`.'
+    )
+
 from pydantic import BaseModel
 
 from odata_v4_query.query_parser import ODataQueryOptions

@@ -10,17 +10,14 @@ ORM/ODM you want to use.
 - ``pymongo`` for PyMongo ODM utils.
 - ``sqlalchemy`` for SQLAlchemy ORM utils.
 
-Example usage::
+**Example usage**
 
-    from odata_v4_query import ODataQueryParser
-    from odata_v4_query.utils.beanie import apply_to_beanie_query
-
-    # Create parser instance
-    parser = ODataQuery_parser()
-
-    # Parse a complete URL
-    options = parser.parse_url('https://example.com/odata?$count=true&$top=10&$skip=20')
-
-    # Apply options to Beanie query
-    query = apply_to_beanie_query(options, User)
+>>> from odata_v4_query import ODataQueryParser
+>>> from odata_v4_query.utils.beanie import apply_to_beanie_query
+>>> # Create parser instance
+>>> parser = ODataQuery_parser()
+>>> # Parse a complete URL
+>>> options = parser.parse_url('https://example.com/odata?$count=true&$top=10&$skip=20')
+>>> # Apply options to Beanie query
+>>> query = apply_to_beanie_query(options, User)
 """

@@ -5,8 +5,15 @@ See ``apply_to_sqlalchemy_query()`` for more information.
 
 from typing import Literal, TypeVar, overload
 
-from sqlalchemy.orm import joinedload
-from sqlalchemy.sql import Select, or_, select
+try:
+    from sqlalchemy.orm import joinedload
+    from sqlalchemy.sql import Select, or_, select
+except ImportError:
+    raise ImportError(
+        'The sqlalchemy dependency is not installed. '
+        'Install it with `pip install odata-v4-query[sqlalchemy]` '
+        'or install it directly with `pip install sqlalchemy`.'
+    )
 
 from odata_v4_query.errors import NoRootClassFound
 from odata_v4_query.query_parser import ODataQueryOptions
