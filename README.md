@@ -11,13 +11,17 @@ options to ORM/ODM queries such as SQLAlchemy, PyMongo and Beanie.
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Utility Functions](#utility-functions)
+    - [Beanie](#beanie)
+    - [PyMongo](#pymongo)
+    - [SQLAlchemy](#sqlalchemy)
 - [Contributing](#contributing)
 - [License](#license)
 - [Support](#support)
 
 ## Features
 
-- Full support for OData V4 standard query parameters:
+- Support for the following OData V4 standard query parameters:
     - `$count` - Include count of items
     - `$expand` - Expand related entities
     - `$filter` - Filter results
@@ -34,7 +38,8 @@ options to ORM/ODM queries such as SQLAlchemy, PyMongo and Beanie.
     - Collection operators: `has`
     - String functions: `startswith`, `endswith`, `contains`
 
-- Utility functions to apply query options to SQLAlchemy and Beanie.
+- Utility functions to apply options to ORM/ODM queries.
+    - See [utility functions](#utility-functions) for more information.
 
 ## Requirements
 
@@ -49,6 +54,18 @@ You can simply install odata-v4-query from
 [PyPI](https://pypi.org/project/odata-v4-query/):
 ```bash
 pip install odata-v4-query
+```
+
+To install all the optional dependencies to use all the ORM/ODM utils:
+```bash
+pip install odata-v4-query[all]
+```
+
+You can also install the dependencies for a specific ORM/ODM util:
+```bash
+pip install odata-v4-query[beanie]
+pip install odata-v4-query[pymongo]
+pip install odata-v4-query[sqlalchemy]
 ```
 
 ## Quick Start
@@ -72,6 +89,108 @@ ast = filter_parser.parse("name eq 'John' and age gt 25")
 # Evaluate filter expressions
 filter_parser.evaluate(ast)
 ```
+
+## Utility Functions
+
+You to need to install the [required dependencies](#requirements) for the
+ORM/ODM you want to use.
+
+### Beanie
+
+```python
+from beanie import Document
+from odata_v4_query import ODataQueryParser
+from odata_v4_query.utils.beanie import apply_to_beanie_query
+
+class User(Document):
+    name: str
+    email: str
+    age: int
+
+# Create parser instance
+parser = ODataQuery_parser()
+
+# Parse a complete URL
+options = parser.parse_query_string("$top=10&$skip=20&$filter=name eq 'John'")
+
+# Apply options to a new query
+query = apply_to_beanie_query(options, User)
+
+# Apply options to an existing query
+query = User.find()
+query = apply_to_beanie_query(options, query)
+```
+
+> [!NOTE]
+> The `$count`, `$expand` and `$format` options won't be applied.
+> You need to handle them manually.
+
+### PyMongo
+
+```python
+from pymongo import MongoClient, ASCENDING, DESCENDING
+from odata_v4_query import ODataQueryParser
+from odata_v4_query.utils.pymongo import PyMongoQuery, get_query_from_options
+
+client = MongoClient()
+db = client['db']
+
+# Create parser instance
+parser = ODataQuery_parser()
+
+# Parse a complete URL
+options = parser.parse_query_string("$top=10&$skip=20&$filter=name eq 'John'")
+
+# Get a PyMongo query from options
+query = get_query_from_options(options)
+
+# Apply query to collection
+db.users.find(**query)
+
+# Using keyword arguments
+db.users.find(
+    skip=query.skip,
+    limit=query.limit,
+    filter=query.filter,
+    sort=query.sort,
+    projection=query.projection,
+)
+```
+
+> [!NOTE]
+> The `$count`, `$expand` and `$format` options won't be applied.
+> You need to handle them manually.
+
+### SQLAlchemy
+
+```python
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from odata_v4_query import ODataQueryParser
+from odata_v4_query.utils.sqlalchemy import apply_to_sqlalchemy_query
+
+class User(DeclarativeBase):
+    name: Mapped[str] = mapped_column()
+    email: Mapped[str] = mapped_column()
+    age: Mapped[int] = mapped_column()
+
+# Create parser instance
+parser = ODataQuery_parser()
+
+# Parse a complete URL
+options = parser.parse_query_string("$top=10&$skip=20&$filter=name eq 'John'")
+
+# Apply options to a new query
+query = apply_to_sqlalchemy_query(options, User)
+
+# Apply options to an existing query
+query = select(User)
+query = apply_to_sqlalchemy_query(options, query)
+```
+
+> [!NOTE]
+> The `$count` and `$format` options won't be applied. You need to handle them
+> manually. Also, the `has` and `nor` operators are not supported in SQL,
+> so they are converted to a `LIKE` and `NOT` expressions, respectively.
 
 ## Contributing
 
