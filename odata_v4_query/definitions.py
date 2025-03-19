@@ -1,5 +1,8 @@
 """Definitions for OData V4 query options."""
 
+DEFAULT_LIMIT = 100
+"""Default limit."""
+
 DEFAULT_FORMAT_OPTIONS = ('json', 'xml', 'csv', 'tsv')
 """Default format options."""
 
