@@ -37,6 +37,33 @@ class TestBeanie:
         assert result[0].name == 'John'
         assert result[1].name == 'Jane'
 
+    async def test_page(self):
+        users_count = len(await User.find().to_list())
+
+        # default top
+        options = self.parser.parse_query_string('$page=1')
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == users_count
+
+        # top 3
+        options = self.parser.parse_query_string('$page=1&$top=4')
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 4
+        options = self.parser.parse_query_string('$page=2&$top=4')
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 4
+        options = self.parser.parse_query_string('$page=3&$top=4')
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 2
+        options = self.parser.parse_query_string('$page=4&$top=4')
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 0
+
     async def test_filter(self):
         # comparison and logical
         options = self.parser.parse_query_string(

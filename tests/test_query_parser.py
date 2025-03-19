@@ -90,6 +90,10 @@ class TestODataQueryParser:
         options = self.parser.parse_query_string('$top=10')
         assert options.top == 10
 
+    def test_parse_page(self):
+        options = self.parser.parse_query_string('$page=10')
+        assert options.page == 10
+
     def test_parse_error(self):
         # unsupported format
         with pytest.raises(UnsupportedFormat):
@@ -102,3 +106,7 @@ class TestODataQueryParser:
         # invalid top
         with pytest.raises(NoPositiveIntegerValue):
             self.parser.parse_query_string('$top=-10')
+
+        # invalid page
+        with pytest.raises(NoPositiveIntegerValue):
+            self.parser.parse_query_string('$page=-10')

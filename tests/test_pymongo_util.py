@@ -52,6 +52,33 @@ class TestBeanie:
         assert result[0]['name'] == 'John'
         assert result[1]['name'] == 'Jane'
 
+    def test_page(self, db: Database):
+        users_count = len(list(db.users.find()))
+
+        # default top
+        options = self.parser.parse_query_string('$page=1')
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == users_count
+
+        # top 3
+        options = self.parser.parse_query_string('$page=1&$top=4')
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 4
+        options = self.parser.parse_query_string('$page=2&$top=4')
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 4
+        options = self.parser.parse_query_string('$page=3&$top=4')
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 2
+        options = self.parser.parse_query_string('$page=4&$top=4')
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 0
+
     def test_filter(self, db: Database):
         # comparison and logical
         options = self.parser.parse_query_string(
