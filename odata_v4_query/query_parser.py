@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
-from .definitions import DEFAULT_FORMAT_OPTIONS
-from .errors import NoPositiveIntegerValue, UnsupportedFormat
+from .definitions import DEFAULT_FORMAT_OPTIONS, DEFAULT_ORDERBY_DIRECTION
+from .errors import NoNumericValueError, NoPositiveError, UnsupportedFormatError
 from .filter_parser import (
     FilterNode,
     ODataFilterParser,
@@ -35,18 +35,11 @@ class ODataQueryOptions:
 
 
 class ODataQueryParser:
-    """Parser for OData V4 query options supporting
-    standard query parameters.
-    """
+    """Parser for standard OData V4 query options."""
 
     __supported_options: dict[str, OptionCallback]
-    """Supported query options."""
-
     __supported_formats: Sequence[str]
-    """Supported response formats."""
-
     __filter_parser: ODataFilterParserProtocol
-    """Filter parser."""
 
     def __init__(
         self,
@@ -54,8 +47,7 @@ class ODataQueryParser:
         supported_formats: Sequence[str] | None = None,
         filter_parser: ODataFilterParserProtocol | None = None,
     ) -> None:
-        """Parser for OData V4 query options supporting
-        standard query parameters.
+        """Initialize the query parser.
 
         Parameters
         ----------
@@ -66,6 +58,7 @@ class ODataQueryParser:
         filter_parser : ODataFilterParserProtocol | None, optional
             Filter parser, by default, it uses an instance
             of ``ODataFilterParser``.
+
         """
         self.__supported_options = supported_options or {
             '$count': self._parse_count,
@@ -83,42 +76,46 @@ class ODataQueryParser:
         self.__filter_parser = filter_parser or ODataFilterParser()
 
     def set_supported_options(
-        self, supported_options: dict[str, OptionCallback]
+        self,
+        supported_options: dict[str, OptionCallback],
     ) -> None:
-        """Sets the supported query options.
+        """Set the supported query options.
 
         Parameters
         ----------
         supported_options : dict[str, OptionCallback]
             Dictionary of supported query options.
+
         """
         self.__supported_options = supported_options  # pragma: no cover
 
     def set_supported_formats(self, supported_formats: Sequence[str]) -> None:
-        """Sets the supported response formats.
+        """Set the supported response formats.
 
         Parameters
         ----------
         supported_formats : Sequence[str]
             Sequence of supported response formats.
+
         """
         self.__supported_formats = supported_formats  # pragma: no cover
 
     def set_filter_parser(
-        self, filter_parser: ODataFilterParserProtocol
+        self,
+        filter_parser: ODataFilterParserProtocol,
     ) -> None:
-        """Sets the filter parser.
+        """Set the filter parser.
 
         Parameters
         ----------
         filter_parser : ODataFilterParserProtocol
             Filter parser.
+
         """
         self.__filter_parser = filter_parser  # pragma: no cover
 
     def parse_url(self, url: str) -> ODataQueryOptions:
-        """Parses a complete OData URL and
-        extracts query options.
+        """Parse a complete OData URL and extracts query options.
 
         Parameters
         ----------
@@ -142,13 +139,13 @@ class ODataQueryParser:
         10
         >>> options.skip
         20
+
         """
         parsed_url = urlparse(url)
         return self.parse_query_string(parsed_url.query)
 
     def parse_query_string(self, query_string: str) -> ODataQueryOptions:
-        """Parses a complete OData query string and
-        extracts query options.
+        """Parse a complete OData query string and extracts query options.
 
         Parameters
         ----------
@@ -172,14 +169,16 @@ class ODataQueryParser:
         10
         >>> options.skip
         20
+
         """
         query_params = parse_qs(query_string)
         return self.parse_query_params(query_params)
 
     def parse_query_params(
-        self, query_params: dict[str, list[str]]
+        self,
+        query_params: dict[str, list[str]],
     ) -> ODataQueryOptions:
-        """Parses OData query parameters and returns structured options.
+        """Parse OData query parameters and returns structured options.
 
         Parameters
         ----------
@@ -203,6 +202,7 @@ class ODataQueryParser:
         10
         >>> options.skip
         20
+
         """
         options = ODataQueryOptions()
 
@@ -220,14 +220,15 @@ class ODataQueryParser:
         return options
 
     def evaluate(
-        self, options_or_filter: ODataQueryOptions | FilterNode
+        self,
+        options_or_filter: ODataQueryOptions | FilterNode,
     ) -> str:
-        """Evaluates an AST and returns the corresponding expression.
+        """Evaluate an AST to the original filter expression.
 
         Parameters
         ----------
-        options : ODataQueryOptions
-            AST representing the parsed filter expression.
+        options_or_filter : ODataQueryOptions | FilterNode
+            Parsed query options or filter AST.
 
         Returns
         -------
@@ -242,6 +243,7 @@ class ODataQueryParser:
         >>> ast = parser.parse_query_string(query_string)
         >>> parser.evaluate(ast)
         "name eq 'John' and age gt 25"
+
         """
         if isinstance(options_or_filter, FilterNode):
             return self.__filter_parser.evaluate(options_or_filter)
@@ -252,7 +254,7 @@ class ODataQueryParser:
         return ''
 
     def _parse_count(self, value: str, options: ODataQueryOptions) -> None:
-        """Parses $count parameter.
+        """Parse $count parameter.
 
         Parameters
         ----------
@@ -260,11 +262,12 @@ class ODataQueryParser:
             Value of the parameter.
         options : ODataQueryOptions
             Current query options object.
+
         """
         options.count = value.lower() == 'true'
 
     def _parse_expand(self, value: str, options: ODataQueryOptions) -> None:
-        """Parses $expand parameter.
+        """Parse $expand parameter.
 
         Parameters
         ----------
@@ -272,11 +275,12 @@ class ODataQueryParser:
             Value of the parameter.
         options : ODataQueryOptions
             Current query options object.
+
         """
         options.expand = self._split_by_comma(value)
 
     def _parse_filter(self, value: str, options: ODataQueryOptions) -> None:
-        """Parses $filter parameter.
+        """Parse $filter parameter.
 
         Parameters
         ----------
@@ -284,11 +288,12 @@ class ODataQueryParser:
             Value of the parameter.
         options : ODataQueryOptions
             Current query options object.
+
         """
         options.filter_ = self.__filter_parser.parse(value)
 
     def _parse_format(self, value: str, options: ODataQueryOptions) -> None:
-        """Parses $format parameter.
+        """Parse $format parameter.
 
         Parameters
         ----------
@@ -299,16 +304,17 @@ class ODataQueryParser:
 
         Raises
         ------
-        UnsupportedFormat
+        UnsupportedFormatError
             If the format is not supported.
+
         """
         if value not in self.__supported_formats:
-            raise UnsupportedFormat(value)
+            raise UnsupportedFormatError(value)
 
         options.format_ = value
 
     def _parse_orderby(self, value: str, options: ODataQueryOptions) -> None:
-        """Parses $orderby parameter.
+        """Parse $orderby parameter.
 
         Parameters
         ----------
@@ -316,34 +322,31 @@ class ODataQueryParser:
             Value of the parameter.
         options : ODataQueryOptions
             Current query options object.
-        """
-        DEFAULT_DIRECTION = 'asc'
 
+        """
         orderby_list = []
         for item in value.split(','):
-            item = item.strip()
-            if not item:
+            item_and_direction = item.strip()
+            if not item_and_direction:
                 continue
 
-            if item.endswith(' asc'):
-                field, direction = item.rsplit(maxsplit=1)
-            elif item.endswith(' desc'):
-                field, direction = item.rsplit(maxsplit=1)
+            if item_and_direction.endswith((' asc', ' desc')):
+                field, direction = item_and_direction.rsplit(maxsplit=1)
             else:
-                field = item
-                direction = DEFAULT_DIRECTION
+                field = item_and_direction
+                direction = DEFAULT_ORDERBY_DIRECTION
 
             orderby_list.append(
                 OrderbyItem(
                     field=field.strip(),
                     direction=direction.strip(),  # type: ignore
-                )
+                ),
             )
 
         options.orderby = orderby_list
 
     def _parse_search(self, value: str, options: ODataQueryOptions) -> None:
-        """Parses $search parameter.
+        """Parse $search parameter.
 
         Parameters
         ----------
@@ -351,11 +354,12 @@ class ODataQueryParser:
             Value of the parameter.
         options : ODataQueryOptions
             Current query options object.
+
         """
         options.search = value.strip()
 
     def _parse_select(self, value: str, options: ODataQueryOptions) -> None:
-        """Parses $select parameter.
+        """Parse $select parameter.
 
         Parameters
         ----------
@@ -363,11 +367,12 @@ class ODataQueryParser:
             Value of the parameter.
         options : ODataQueryOptions
             Current query options object.
+
         """
         options.select = self._split_by_comma(value)
 
     def _parse_skip(self, value: str, options: ODataQueryOptions) -> None:
-        """Parses $skip parameter.
+        """Parse $skip parameter.
 
         Parameters
         ----------
@@ -378,17 +383,22 @@ class ODataQueryParser:
 
         Raises
         ------
-        NoPositiveIntegerValue
+        NoNumericValueError
+            If the value is not a number.
+        NoPositiveError
             If the value is not a positive integer.
+
         """
         try:
             options.skip = int(value)
-            assert options.skip >= 0
-        except (AssertionError, ValueError, TypeError):
-            raise NoPositiveIntegerValue('$skip', value)
+        except (ValueError, TypeError) as e:
+            raise NoNumericValueError(value) from e
+
+        if options.skip < 0:
+            raise NoPositiveError(param='$skip', value=value)
 
     def _parse_top(self, value: str, options: ODataQueryOptions) -> None:
-        """Parses $top parameter.
+        """Parse $top parameter.
 
         Parameters
         ----------
@@ -399,17 +409,22 @@ class ODataQueryParser:
 
         Raises
         ------
-        NoPositiveIntegerValue
+        NoNumericValueError
+            If the value is not a number.
+        NoPositiveError
             If the value is not a positive integer.
+
         """
         try:
             options.top = int(value)
-            assert options.top >= 0
-        except (AssertionError, ValueError, TypeError):
-            raise NoPositiveIntegerValue('$top', value)
+        except (ValueError, TypeError) as e:
+            raise NoNumericValueError(value) from e
+
+        if options.top < 0:
+            raise NoPositiveError(param='$top', value=value)
 
     def _parse_page(self, value: str, options: ODataQueryOptions) -> None:
-        """Parses $page parameter.
+        """Parse $page parameter.
 
         Parameters
         ----------
@@ -420,17 +435,22 @@ class ODataQueryParser:
 
         Raises
         ------
-        NoPositiveIntegerValue
+        NoNumericValueError
+            If the value is not a number.
+        NoPositiveError
             If the value is not a positive integer.
+
         """
         try:
             options.page = int(value)
-            assert options.page >= 0
-        except (AssertionError, ValueError, TypeError):
-            raise NoPositiveIntegerValue('$page', value)
+        except (ValueError, TypeError) as e:
+            raise NoNumericValueError(value) from e
+
+        if options.page < 0:
+            raise NoPositiveError(param='$page', value=value)
 
     def _split_by_comma(self, value: str) -> list[str]:
-        """Splits a string by comma.
+        """Split a string by comma.
 
         Parameters
         ----------
@@ -441,5 +461,6 @@ class ODataQueryParser:
         -------
         list[str]
             List of strings.
+
         """
         return [item.strip() for item in value.split(',')]
