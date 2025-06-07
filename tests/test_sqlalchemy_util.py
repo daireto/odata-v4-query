@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import select
 
 from odata_v4_query.errors import (
-    NoRootClassFound,
+    NoRootClassError,
     ParseError,
-    UnexpectedNullOperand,
+    UnexpectedNullOperandError,
 )
 from odata_v4_query.filter_parser import FilterNode
 from odata_v4_query.query_parser import ODataQueryOptions, ODataQueryParser
@@ -223,14 +223,14 @@ class TestSQLAlchemy:
             apply_to_sqlalchemy_query(options, User)
 
         # null left or right operands
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(type_='operator', value='eq')
             )
             apply_to_sqlalchemy_query(options, User)
 
         # null left or right values
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(
                     type_='operator',
@@ -242,7 +242,7 @@ class TestSQLAlchemy:
             apply_to_sqlalchemy_query(options, User)
 
         # null list arguments
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(
                     type_='operator',
@@ -254,7 +254,7 @@ class TestSQLAlchemy:
             apply_to_sqlalchemy_query(options, User)
 
         # null operand for has operator
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(
                     type_='operator',
@@ -266,14 +266,14 @@ class TestSQLAlchemy:
             apply_to_sqlalchemy_query(options, User)
 
         # null operand for and/or operator
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(type_='operator', value='and')
             )
             apply_to_sqlalchemy_query(options, User)
 
         # null operand for not/nor operator
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(type_='operator', value='not')
             )
@@ -345,18 +345,18 @@ class TestSQLAlchemy:
         query = select(func.count('*'))
         with pytest.raises(ValueError):
             get_query_root_cls(query, raise_on_none=True)
-        with pytest.raises(NoRootClassFound):
+        with pytest.raises(NoRootClassError):
             options = self.parser.parse_query_string('$filter=name eq null')
             apply_to_sqlalchemy_query(options, query)
-        with pytest.raises(NoRootClassFound):
+        with pytest.raises(NoRootClassError):
             options = self.parser.parse_query_string('$search=John')
             apply_to_sqlalchemy_query(options, query, search_fields=['name'])
-        with pytest.raises(NoRootClassFound):
+        with pytest.raises(NoRootClassError):
             options = self.parser.parse_query_string('$orderby=name asc')
             apply_to_sqlalchemy_query(options, query)
-        with pytest.raises(NoRootClassFound):
+        with pytest.raises(NoRootClassError):
             options = self.parser.parse_query_string('$expand=posts')
             apply_to_sqlalchemy_query(options, query)
-        with pytest.raises(NoRootClassFound):
+        with pytest.raises(NoRootClassError):
             options = self.parser.parse_query_string('$select=name,email')
             apply_to_sqlalchemy_query(options, query)

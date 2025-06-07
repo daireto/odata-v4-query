@@ -1,6 +1,6 @@
 import pytest
 
-from odata_v4_query.errors import NoPositiveIntegerValue, UnsupportedFormat
+from odata_v4_query.errors import NoPositiveError, UnsupportedFormatError
 from odata_v4_query.query_parser import ODataQueryParser
 
 
@@ -96,17 +96,17 @@ class TestODataQueryParser:
 
     def test_parse_error(self):
         # unsupported format
-        with pytest.raises(UnsupportedFormat):
+        with pytest.raises(UnsupportedFormatError):
             self.parser.parse_query_string('$format=html')
 
         # invalid skip
-        with pytest.raises(NoPositiveIntegerValue):
+        with pytest.raises(NoPositiveError):
             self.parser.parse_query_string('$skip=-10')
 
         # invalid top
-        with pytest.raises(NoPositiveIntegerValue):
+        with pytest.raises(NoPositiveError):
             self.parser.parse_query_string('$top=-10')
 
         # invalid page
-        with pytest.raises(NoPositiveIntegerValue):
+        with pytest.raises(NoPositiveError):
             self.parser.parse_query_string('$page=-10')

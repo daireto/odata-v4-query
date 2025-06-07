@@ -1,7 +1,7 @@
 import pytest
 from mongomock import Database
 
-from odata_v4_query.errors import ParseError, UnexpectedNullOperand
+from odata_v4_query.errors import ParseError, UnexpectedNullOperandError
 from odata_v4_query.filter_parser import FilterNode
 from odata_v4_query.query_parser import ODataQueryOptions, ODataQueryParser
 from odata_v4_query.utils.pymongo import PyMongoQuery, get_query_from_options
@@ -221,14 +221,14 @@ class TestBeanie:
             get_query_from_options(options)
 
         # null left or right operands
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(type_='operator', value='eq')
             )
             get_query_from_options(options)
 
         # null left or right values
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(
                     type_='operator',
@@ -240,7 +240,7 @@ class TestBeanie:
             get_query_from_options(options)
 
         # null list arguments
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(
                     type_='operator',
@@ -252,7 +252,7 @@ class TestBeanie:
             get_query_from_options(options)
 
         # null operand for has operator
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(
                     type_='operator',
@@ -264,14 +264,14 @@ class TestBeanie:
             get_query_from_options(options)
 
         # null operand for and/or operator
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(type_='operator', value='and')
             )
             get_query_from_options(options)
 
         # null operand for not/nor operator
-        with pytest.raises(UnexpectedNullOperand):
+        with pytest.raises(UnexpectedNullOperandError):
             options = ODataQueryOptions(
                 filter_=FilterNode(type_='operator', value='not')
             )
