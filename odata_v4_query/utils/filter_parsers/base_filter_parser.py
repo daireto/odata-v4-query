@@ -4,25 +4,47 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from odata_v4_query.definitions import (
-    ODATA_COMPARISON_OPERATORS,
-    ODATA_LOGICAL_OPERATORS,
+    AND,
+    COMPARISON_OPERATORS,
+    CONTAINS,
+    ENDSWITH,
+    EQ,
+    HAS,
+    IN,
+    LOGICAL_OPERATORS,
+    NE,
+    NIN,
+    OR,
+    STARTSWITH,
 )
-from odata_v4_query.errors import ParseError, UnexpectedNullOperand
+from odata_v4_query.errors import (
+    TwoArgumentsExpectedError,
+    UnexpectedEmptyArgumentsError,
+    UnexpectedNullFiltersError,
+    UnexpectedNullFunctionNameError,
+    UnexpectedNullOperandError,
+    UnexpectedNullOperatorError,
+    UnknownFunctionError,
+    UnknownOperatorError,
+)
 from odata_v4_query.query_parser import FilterNode
+
+_TWO_ARGUMENTS_VALUE = 2
 
 
 class BaseFilterNodeParser(ABC):
     """Base class for filter node parsers.
 
     The following methods must be implemented by subclasses:
-    - **parse_startswith**: Parses a startswith function.
-    - **parse_endswith**: Parses an endswith function.
-    - **parse_contains**: Parses a contains function.
-    - **parse_in_nin_operators**: Parses an in/nin operator.
-    - **parse_comparison_operators**: Parses an eq/ne/gt/ge/lt/le operator.
-    - **parse_has_operator**: Parses a has operator.
-    - **parse_and_or_operators**: Parses an and/or operator.
-    - **parse_not_nor_operators**: Parses a not/nor operator.
+
+    - **parse_startswith**: Parse a startswith function.
+    - **parse_endswith**: Parse an endswith function.
+    - **parse_contains**: Parse a contains function.
+    - **parse_membership_operators**: Parse an in/nin operator.
+    - **parse_comparison_operators**: Parse an eq/ne/gt/ge/lt/le operator.
+    - **parse_has_operator**: Parse a has operator.
+    - **parse_and_or_operators**: Parse an and/or operator.
+    - **parse_not_nor_operators**: Parse a not/nor operator.
     """
 
     @abstractmethod
@@ -35,33 +57,37 @@ class BaseFilterNodeParser(ABC):
     def parse_contains(self, field: str, value: Any) -> FilterNode: ...
 
     @abstractmethod
-    def parse_in_nin_operators(
-        self, left: Any, op_node: Any, right: Any
+    def parse_membership_operators(
+        self,
+        left: Any,
+        op_node: Any,
+        right: Any,
     ) -> FilterNode: ...
 
     @abstractmethod
     def parse_comparison_operators(
-        self, left: Any, op_node: Any, right: Any
+        self,
+        left: Any,
+        op_node: Any,
+        right: Any,
     ) -> FilterNode: ...
 
     @abstractmethod
-    def parse_has_operator(
-        self, left: Any, op_node: Any, right: Any
-    ) -> FilterNode: ...
+    def parse_has_operator(self, left: Any, op_node: Any, right: Any) -> FilterNode: ...
 
     @abstractmethod
     def parse_and_or_operators(
-        self, left: Any, op_node: Any, right: Any
+        self,
+        left: Any,
+        op_node: Any,
+        right: Any,
     ) -> FilterNode: ...
 
     @abstractmethod
-    def parse_not_nor_operators(
-        self, op_node: Any, right: Any
-    ) -> FilterNode: ...
+    def parse_not_nor_operators(self, op_node: Any, right: Any) -> FilterNode: ...
 
     def parse(self, filter_node: FilterNode) -> Any:
-        """Parses a filter node and returns the corresponding
-        ORM/ODM filter.
+        """Parse an AST to an ORM/ODM filter expression from the root node.
 
         Parameters
         ----------
@@ -75,17 +101,18 @@ class BaseFilterNodeParser(ABC):
 
         Raises
         ------
-        ParseError
+        UnexpectedNullFiltersError
             If the resulting filter is None.
+
         """
         filters = self.node_to_filter_expr(filter_node).value
         if filters is None:
-            raise ParseError('unexpected null filters')
+            raise UnexpectedNullFiltersError(repr(filter_node))
 
         return filters
 
     def node_to_filter_expr(self, filter_node: FilterNode) -> FilterNode:
-        """Converts a filter node to an ORM/ODM filter expression.
+        """Recursively convert a filter node to an ORM/ODM filter expression.
 
         Parameters
         ----------
@@ -96,6 +123,7 @@ class BaseFilterNodeParser(ABC):
         -------
         FilterNode
             New filter node containing the resulting ORM/ODM filter.
+
         """
         if filter_node.type_ == 'function':
             return self.parse_function_node(filter_node)
@@ -114,8 +142,7 @@ class BaseFilterNodeParser(ABC):
         return filter_node
 
     def parse_function_node(self, func_node: FilterNode) -> FilterNode:
-        """Parses a function node and returns the corresponding
-        ORM/ODM filter.
+        """Parse a function node to an ORM/ODM filter expression.
 
         Parameters
         ----------
@@ -129,49 +156,44 @@ class BaseFilterNodeParser(ABC):
 
         Raises
         ------
-        ParseError
+        UnexpectedNullFunctionNameError
             If function name is None.
-        ParseError
+        UnexpectedEmptyArgumentsError
             If arguments of the function are empty.
-        ParseError
-            If arguments count is not 2.
-        ParseError
+        TwoArgumentsExpectedError
+            If the function expects 2 arguments and more than 2 are provided.
+        UnexpectedNullOperandError
             If an operand is None.
-        ParseError
+        UnknownFunctionError
             If the function is unknown.
+
         """
         if not func_node.value:
-            raise ParseError(f'unexpected null function name: {func_node!r}')
+            raise UnexpectedNullFunctionNameError(repr(func_node))
 
         if not func_node.arguments:
-            raise ParseError(
-                f'unexpected empty arguments for function {func_node.value!r}'
-            )
+            raise UnexpectedEmptyArgumentsError(func_node.value)
 
-        if not len(func_node.arguments) == 2:
-            raise ParseError(
-                f'expected 2 arguments for function {func_node.value!r}'
-            )
+        if not self._has_two_arguments(func_node.arguments):
+            raise TwoArgumentsExpectedError(func_node.value)
 
         field, value = (
             func_node.arguments[0].value,
             func_node.arguments[1].value,
         )
         if field is None or value is None:
-            raise ParseError(
-                f'unexpected null operand for function {func_node.value!r}'
-            )
+            raise UnexpectedNullOperandError(func_node.value)
 
-        if func_node.value == 'startswith':
+        if func_node.value == STARTSWITH:
             return self.parse_startswith(field, value)
 
-        if func_node.value == 'endswith':
+        if func_node.value == ENDSWITH:
             return self.parse_endswith(field, value)
 
-        if func_node.value == 'contains':
+        if func_node.value == CONTAINS:
             return self.parse_contains(field, value)
 
-        raise ParseError(f'unknown function: {func_node.value!r}')
+        raise UnknownFunctionError(func_node.value)
 
     def parse_operator_node(
         self,
@@ -179,8 +201,7 @@ class BaseFilterNodeParser(ABC):
         left: FilterNode | None,
         right: FilterNode | None,
     ) -> FilterNode:
-        """Parses an operator node and returns the corresponding
-        ORM/ODM filter.
+        """Parse an operator node to an ORM/ODM filter expression.
 
         Parameters
         ----------
@@ -198,70 +219,96 @@ class BaseFilterNodeParser(ABC):
 
         Raises
         ------
-        UnexpectedNullOperand
-            If an operand is None.
-        UnexpectedNullOperand
-            If a value is None.
-        ParseError
+        UnexpectedNullOperatorError
+            If the operator is None.
+        UnexpectedNullOperandError
+            If an required operand is None.
+        UnknownOperatorError
             If the operator is unknown.
+
         """
-        if op_node.value in ODATA_COMPARISON_OPERATORS:
-            if left is None or right is None:
-                raise UnexpectedNullOperand(op_node.value)
+        if op_node.value is None:
+            raise UnexpectedNullOperatorError(repr(op_node))
 
-            if op_node.value in ('in', 'nin'):
-                if left.value is None or right.arguments is None:
-                    raise UnexpectedNullOperand(op_node.value)
+        if op_node.value in COMPARISON_OPERATORS:
+            return self._parse_comparison_or_membership(op_node.value, left, right)
 
-                right.value = [arg.value for arg in right.arguments]
-                return self.parse_in_nin_operators(
-                    left.value, op_node.value, right.value
-                )
+        if op_node.value == HAS:
+            return self._parse_has(op_node.value, left, right)
 
-            if left.value is None or (
-                op_node.value not in ('eq', 'ne') and right.value is None
-            ):
-                raise UnexpectedNullOperand(op_node.value)
+        if op_node.value in LOGICAL_OPERATORS:
+            return self._parse_logical(op_node.value, left, right)
 
-            return self.parse_comparison_operators(
-                left.value, op_node.value, right.value
+        raise UnknownOperatorError(op_node.value)
+
+    def _parse_comparison_or_membership(
+        self,
+        operator: str,
+        left: FilterNode | None,
+        right: FilterNode | None,
+    ) -> FilterNode:
+        if left is None or right is None:
+            raise UnexpectedNullOperandError(operator)
+
+        if operator in (IN, NIN):
+            if left.value is None or right.arguments is None:
+                raise UnexpectedNullOperandError(operator)
+
+            right.value = [arg.value for arg in right.arguments]
+            return self.parse_membership_operators(
+                left.value,
+                operator,
+                right.value,
             )
 
-        elif op_node.value == 'has':
+        if left.value is None or (operator not in (EQ, NE) and right.value is None):
+            raise UnexpectedNullOperandError(operator)
+
+        return self.parse_comparison_operators(
+            left.value,
+            operator,
+            right.value,
+        )
+
+    def _parse_logical(
+        self,
+        operator: str,
+        left: FilterNode | None,
+        right: FilterNode | None,
+    ) -> FilterNode:
+        if operator in (AND, OR):
             if (
                 left is None
                 or right is None
                 or left.value is None
                 or right.value is None
             ):
-                raise UnexpectedNullOperand(op_node.value)
+                raise UnexpectedNullOperandError(operator)
 
-            return self.parse_has_operator(
-                left.value, op_node.value, right.value
+            return self.parse_and_or_operators(
+                left.value,
+                operator,
+                right.value,
             )
 
-        elif op_node.value in ODATA_LOGICAL_OPERATORS:
-            if op_node.value in ('and', 'or'):
-                if (
-                    left is None
-                    or right is None
-                    or left.value is None
-                    or right.value is None
-                ):
-                    raise UnexpectedNullOperand(op_node.value)
+        if right is None or right.value is None:
+            raise UnexpectedNullOperandError(operator)
 
-                return self.parse_and_or_operators(
-                    left.value, op_node.value, right.value
-                )
+        return self.parse_not_nor_operators(operator, right.value)
 
-            else:
-                if right is None or right.value is None:
-                    raise UnexpectedNullOperand(op_node.value)
+    def _parse_has(
+        self,
+        operator: str,
+        left: FilterNode | None,
+        right: FilterNode | None,
+    ) -> FilterNode:
+        if left is None or right is None or left.value is None or right.value is None:
+            raise UnexpectedNullOperandError(operator)
 
-                return self.parse_not_nor_operators(op_node.value, right.value)
+        return self.parse_has_operator(left.value, operator, right.value)
 
-        else:
-            raise ParseError(f'unknown operator: {op_node.value!r}')
+    def _has_two_arguments(self, arguments: list[FilterNode]) -> bool:
+        return len(arguments) == _TWO_ARGUMENTS_VALUE
 
     def _get_value_filter_node(self, value: Any) -> FilterNode:
         return FilterNode(type_='value', value=value)
