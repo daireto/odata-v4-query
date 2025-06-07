@@ -4,7 +4,12 @@ from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
 from .definitions import DEFAULT_FORMAT_OPTIONS, DEFAULT_ORDERBY_DIRECTION
-from .errors import NoNumericValueError, NoPositiveError, UnsupportedFormatError
+from .errors import (
+    InvalidOrderDirectionError,
+    NoNumericValueError,
+    NoPositiveError,
+    UnsupportedFormatError,
+)
 from .filter_parser import (
     FilterNode,
     ODataFilterParser,
@@ -330,11 +335,14 @@ class ODataQueryParser:
             if not item_and_direction:
                 continue
 
-            if item_and_direction.endswith((' asc', ' desc')):
+            if ' ' in item_and_direction:
                 field, direction = item_and_direction.rsplit(maxsplit=1)
             else:
-                field = item_and_direction
-                direction = DEFAULT_ORDERBY_DIRECTION
+                field, direction = item_and_direction, DEFAULT_ORDERBY_DIRECTION
+
+            direction = direction.lower()
+            if direction not in ('asc', 'desc'):
+                raise InvalidOrderDirectionError(direction)
 
             orderby_list.append(
                 OrderbyItem(
