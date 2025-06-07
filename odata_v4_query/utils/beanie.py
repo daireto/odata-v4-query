@@ -127,11 +127,6 @@ def apply_to_beanie_query(
     ParsedQuery
         Beanie query with applied options.
 
-    Raises
-    ------
-    ParseError
-        If the filters are empty.
-
     Examples
     --------
     Assuming the following ``User`` beanie document:
