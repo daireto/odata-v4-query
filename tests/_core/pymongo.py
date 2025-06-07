@@ -1,5 +1,4 @@
-from mongomock import Database
-from mongomock_motor import MongoClient
+from mongomock import Database, MongoClient
 
 
 def get_client():
