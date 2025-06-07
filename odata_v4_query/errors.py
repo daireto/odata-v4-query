@@ -2,19 +2,19 @@ class ODataParserError(Exception):
     """Base class for all OData parser errors."""
 
 
-class EvaluateError(ODataParserError, ValueError):
-    """Base class for all evaluation errors."""
+class InvalidOrderDirectionError(ODataParserError, ValueError):
+    """Invalid order direction error."""
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, direction: str) -> None:
         """Initialize the error.
 
         Parameters
         ----------
-        message : str
-            Error message.
+        direction : str
+            Direction.
 
         """
-        super().__init__(message)
+        super().__init__(f'invalid order direction {direction!r}')
 
 
 class InvalidNumberError(ODataParserError, ValueError):
@@ -36,19 +36,46 @@ class InvalidNumberError(ODataParserError, ValueError):
         )
 
 
-class ParseError(ODataParserError, ValueError):
-    """Parser error."""
+class OpeningParenthesisExpectedError(ODataParserError, ValueError):
+    """Opening parenthesis expected error."""
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, func_name: str) -> None:
         """Initialize the error.
 
         Parameters
         ----------
-        message : str
-            Error message.
+        func_name : str
+            Function name.
 
         """
-        super().__init__(message)
+        super().__init__(f"expected '(' after {func_name!r} function name")
+
+
+class CommaOrClosingParenthesisExpectedError(ODataParserError, ValueError):
+    """Comma or closing parenthesis expected error."""
+
+    def __init__(self, value: str, expected_after: bool = False) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        value : str
+            Value.
+        expected_after : bool, optional
+            Whether the comma or closing parenthesis is expected
+            after the value, by default False.
+
+        """
+        value = f' after {value!r}' if expected_after else f', got {value!r}'
+        super().__init__(f"expected ',' or ')'{value}")
+
+
+class MissingClosingParenthesisError(ODataParserError, ValueError):
+    """Missing closing parenthesis error."""
+
+    def __init__(self) -> None:
+        """Initialize the error."""
+        super().__init__('missing closing parenthesis')
 
 
 class NoNumericValueError(ODataParserError, ValueError):
@@ -149,6 +176,14 @@ class UnexpectedEmptyArgumentsError(ODataParserError, ValueError):
         super().__init__(f'unexpected empty arguments for function {function_name!r}')
 
 
+class UnexpectedEndOfExpressionError(ODataParserError, ValueError):
+    """Unexpected end of expression error."""
+
+    def __init__(self) -> None:
+        """Initialize the error."""
+        super().__init__('unexpected end of expression')
+
+
 class UnexpectedNullFiltersError(ODataParserError, ValueError):
     """Unexpected null filters error."""
 
@@ -177,6 +212,66 @@ class UnexpectedNullFunctionNameError(ODataParserError, ValueError):
 
         """
         super().__init__(f'unexpected null function name in {node_repr!r}')
+
+
+class UnexpectedNullIdentifierError(ODataParserError, ValueError):
+    """Unexpected null identifier error."""
+
+    def __init__(self, node_repr: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        node_repr : str
+            Node representation.
+
+        """
+        super().__init__(f'unexpected null identifier in {node_repr!r}')
+
+
+class UnexpectedNullListError(ODataParserError, ValueError):
+    """Unexpected null list error."""
+
+    def __init__(self, node_repr: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        node_repr : str
+            Node representation.
+
+        """
+        super().__init__(f'unexpected null list in {node_repr!r}')
+
+
+class UnexpectedNullLiteralError(ODataParserError, ValueError):
+    """Unexpected null literal error."""
+
+    def __init__(self, node_repr: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        node_repr : str
+            Node representation.
+
+        """
+        super().__init__(f'unexpected null literal in {node_repr!r}')
+
+
+class UnexpectedNullNodeTypeError(ODataParserError, ValueError):
+    """Unexpected null node type error."""
+
+    def __init__(self, node_repr: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        node_repr : str
+            Node representation.
+
+        """
+        super().__init__(f'unexpected null node type in {node_repr!r}')
 
 
 class UnexpectedNullOperandError(ODataParserError, ValueError):
@@ -211,6 +306,23 @@ class UnexpectedNullOperatorError(ODataParserError, ValueError):
         super().__init__(f'unexpected null operator in {node_repr!r}')
 
 
+class UnexpectedTokenError(ODataParserError, ValueError):
+    """Unexpected token error."""
+
+    def __init__(self, token: str, position: int) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        token : str
+            Token.
+        position : int
+            Token position.
+
+        """
+        super().__init__(f'unexpected token {token!r} at position {position}')
+
+
 class UnknownFunctionError(ODataParserError, ValueError):
     """Unknown function error."""
 
@@ -224,6 +336,21 @@ class UnknownFunctionError(ODataParserError, ValueError):
 
         """
         super().__init__(f'unknown function {function_name!r}')
+
+
+class UnknownNodeTypeError(ODataParserError, ValueError):
+    """Unknown node type error."""
+
+    def __init__(self, node_type: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        node_type : str
+            Node type.
+
+        """
+        super().__init__(f'unknown node type {node_type!r}')
 
 
 class UnknownOperatorError(ODataParserError, ValueError):
