@@ -8,12 +8,13 @@ try:
     from beanie.odm.queries.aggregation import AggregationQuery
     from beanie.odm.queries.find import FindMany
     from beanie.operators import Or
-except ImportError:  # pragma: no cover
-    raise ImportError(
+except ImportError as e:  # pragma: no cover
+    missing_dep_msg = (
         'The beanie dependency is not installed. '
         'Install it with `pip install odata-v4-query[beanie]` '
         'or install it directly with `pip install beanie`.'
-    )  # pragma: no cover
+    )
+    raise ImportError(missing_dep_msg) from e  # pragma: no cover
 
 from typing import Any, Literal, TypeVar, overload
 
@@ -85,7 +86,7 @@ def apply_to_beanie_query(
     search_fields: list[str] | None = None,
     fetch_links: bool = False,
 ) -> ParsedQuery:
-    """Applies OData query options to a Beanie query.
+    """Apply OData query options to a Beanie query.
 
     If the ``$page`` option is used, it is converted to ``$skip``
     and ``$top``. If ``$top`` is not provided, it defaults to 100.
@@ -182,6 +183,7 @@ def apply_to_beanie_query(
     ...     User.find(),
     ...     fetch_links=True
     ... )
+
     """
     compute_skip_from_page(options)
 
@@ -204,10 +206,7 @@ def apply_to_beanie_query(
     if options.search and search_fields:
         query = query.find(
             Or(
-                *[
-                    {field: {'$regex': options.search}}
-                    for field in search_fields
-                ]
+                *[{field: {'$regex': options.search}} for field in search_fields],
             ).query,
             fetch_links=fetch_links,
         )
@@ -221,7 +220,7 @@ def apply_to_beanie_query(
 
     if options.select and parse_select:
         query = query.aggregate(
-            [{'$project': {field: 1 for field in options.select}}],
+            [{'$project': dict.fromkeys(options.select, 1)}],
             projection_model=projection_model,
         )
     else:

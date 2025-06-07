@@ -3,15 +3,16 @@ class ODataParserError(Exception):
 
 
 class EvaluateError(ODataParserError, ValueError):
-    """Evaluation error."""
+    """Base class for all evaluation errors."""
 
     def __init__(self, message: str) -> None:
-        """Evaluation error.
+        """Initialize the error.
 
         Parameters
         ----------
         message : str
             Error message.
+
         """
         super().__init__(message)
 
@@ -20,7 +21,7 @@ class InvalidNumberError(ODataParserError, ValueError):
     """Invalid number error."""
 
     def __init__(self, value: str, position: int) -> None:
-        """Invalid number error.
+        """Initialize the error.
 
         Parameters
         ----------
@@ -28,9 +29,10 @@ class InvalidNumberError(ODataParserError, ValueError):
             Value.
         position : int
             Start position.
+
         """
         super().__init__(
-            f'invalid number at position {position}, got {value!r}'
+            f'invalid number at position {position}, got {value!r}',
         )
 
 
@@ -38,21 +40,37 @@ class ParseError(ODataParserError, ValueError):
     """Parser error."""
 
     def __init__(self, message: str) -> None:
-        """Parser error.
+        """Initialize the error.
 
         Parameters
         ----------
         message : str
             Error message.
+
         """
         super().__init__(message)
 
 
-class NoPositiveIntegerValue(ODataParserError, ValueError):
+class NoNumericValueError(ODataParserError, ValueError):
+    """No numeric value error."""
+
+    def __init__(self, value: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        value : str
+            Value.
+
+        """
+        super().__init__(f'expected a numeric value, got {value!r}')
+
+
+class NoPositiveError(ODataParserError, ValueError):
     """No positive integer value error."""
 
     def __init__(self, param: str, value: str) -> None:
-        """No positive integer value error.
+        """Initialize the error.
 
         Parameters
         ----------
@@ -60,32 +78,35 @@ class NoPositiveIntegerValue(ODataParserError, ValueError):
             Parameter.
         value : str
             Value.
+
         """
-        super().__init__(
-            f'expected {param} to be a positive integer, got {value!r}'
-        )
+        super().__init__(f'expected {param} to be a positive integer, got {value!r}')
 
 
-class NoRootClassFound(ODataParserError, ValueError):
+class NoRootClassError(ODataParserError, ValueError):
     """No root class found error."""
 
-    def __init__(self, query: str, option_name: str) -> None:
-        """No root class found error.
+    def __init__(self, query: str, option_name: str | None = None) -> None:
+        """Initialize the error.
 
         Parameters
         ----------
         query : str
             Query.
+        option_name : str | None, optional
+            Option name, by default None.
+
         """
-        super().__init__(f'could not find root class of query: {query!r}')
-        self.add_note(f'cannot apply {option_name} option')
+        super().__init__(f'could not find root class of query {query!r}')
+        if option_name:
+            self.add_note(f'cannot apply {option_name} option')
 
 
 class TokenizeError(ODataParserError, ValueError):
     """Tokenizer error."""
 
     def __init__(self, char: str, position: int) -> None:
-        """Tokenizer error.
+        """Initialize the error.
 
         Parameters
         ----------
@@ -93,28 +114,135 @@ class TokenizeError(ODataParserError, ValueError):
             Character.
         position : int
             Character position.
+
+        """
+        super().__init__(f'unexpected character {char!r} at position {position}')
+
+
+class TwoArgumentsExpectedError(ODataParserError, ValueError):
+    """Two arguments expected error."""
+
+    def __init__(self, function_name: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        function_name : str
+            Function name.
+
+        """
+        super().__init__(f'expected 2 arguments for function {function_name!r}')
+
+
+class UnexpectedEmptyArgumentsError(ODataParserError, ValueError):
+    """Unexpected empty arguments error."""
+
+    def __init__(self, function_name: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        function_name : str
+            Function name.
+
+        """
+        super().__init__(f'unexpected empty arguments for function {function_name!r}')
+
+
+class UnexpectedNullFiltersError(ODataParserError, ValueError):
+    """Unexpected null filters error."""
+
+    def __init__(self, node_repr: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        node_repr : str
+            Node representation.
+
+        """
+        super().__init__(f'unexpected null filters in {node_repr!r}')
+
+
+class UnexpectedNullFunctionNameError(ODataParserError, ValueError):
+    """Unexpected null function name error."""
+
+    def __init__(self, node_repr: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        node_repr : str
+            Node representation.
+
+        """
+        super().__init__(f'unexpected null function name in {node_repr!r}')
+
+
+class UnexpectedNullOperandError(ODataParserError, ValueError):
+    """Unexpected null operand error."""
+
+    def __init__(self, operator_or_function: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        operator_or_function : str
+            Operator or function.
+
         """
         super().__init__(
-            f'unexpected character {char!r} at position {position}'
+            f'unexpected null operand for {operator_or_function!r}',
         )
 
 
-class UnexpectedNullOperand(ODataParserError, ValueError):
-    """Unexpected null operand error."""
+class UnexpectedNullOperatorError(ODataParserError, ValueError):
+    """Unexpected null operator error."""
+
+    def __init__(self, node_repr: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        node_repr : str
+            Node representation.
+
+        """
+        super().__init__(f'unexpected null operator in {node_repr!r}')
+
+
+class UnknownFunctionError(ODataParserError, ValueError):
+    """Unknown function error."""
+
+    def __init__(self, function_name: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        function_name : str
+            Function name.
+
+        """
+        super().__init__(f'unknown function {function_name!r}')
+
+
+class UnknownOperatorError(ODataParserError, ValueError):
+    """Unknown operator error."""
 
     def __init__(self, operator: str) -> None:
-        """Unexpected null operand error.
+        """Initialize the error.
 
         Parameters
         ----------
         operator : str
             Operator.
+
         """
-        super().__init__(f'unexpected null operand for operator {operator!r}')
+        super().__init__(f'unknown operator {operator!r}')
 
 
-class UnsupportedFormat(ODataParserError, ValueError):
-    """Unsupported format error."""
+class UnsupportedFormatError(ODataParserError, ValueError):
+    """Initialize the error."""
 
     def __init__(self, fmt: str) -> None:
         """Unsupported format error.
@@ -123,8 +251,6 @@ class UnsupportedFormat(ODataParserError, ValueError):
         ----------
         fmt : str
             Format.
+
         """
-        super().__init__(
-            f'unsupported format: {fmt!r}. Supported formats: '
-            'json, xml, csv, tsv'
-        )
+        super().__init__(f'unsupported format {fmt!r}')

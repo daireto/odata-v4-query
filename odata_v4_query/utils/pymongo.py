@@ -1,17 +1,17 @@
-"""Utility function for getting MongoDB query from OData query options
-to be applied to a PyMongo query.
+"""Utility function for applying OData query options to a PyMongo query.
 
 See ``get_query_from_options()`` for more information.
 """
 
 try:
     from pymongo import ASCENDING, DESCENDING
-except ImportError:  # pragma: no cover
-    raise ImportError(
+except ImportError as e:  # pragma: no cover
+    missing_dep_msg = (
         'The pymongo dependency is not installed. '
         'Install it with `pip install odata-v4-query[pymongo]` '
         'or install it directly with `pip install pymongo`.'
-    )  # pragma: no cover
+    )
+    raise ImportError(missing_dep_msg) from e  # pragma: no cover
 
 from typing import Any
 
@@ -22,8 +22,9 @@ from .filter_parsers.mongo_filter_parser import MongoDBFilterNodeParser
 
 
 class PyMongoQuery(dict):
-    """Simple PyMongo query dictionary implementation
-    supporting the ``skip``, ``limit``, ``filter``, ``sort``
+    """Simple PyMongo query dictionary implementation.
+
+    Supports the ``skip``, ``limit``, ``filter``, ``sort``
     and ``projection`` options.
 
     Examples
@@ -55,6 +56,7 @@ class PyMongoQuery(dict):
     ...     projection=query.projection,
     ... )
     >>> db.users.find(**query)
+
     """
 
     skip: int | None = None
@@ -63,7 +65,7 @@ class PyMongoQuery(dict):
     sort: list[tuple[str, int]] | None = None
     projection: list[str] | None = None
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.skip = kwargs.get('skip')
         self.limit = kwargs.get('limit')
@@ -148,6 +150,7 @@ def get_query_from_options(
     ...     options,
     ...     parse_select=True
     ... )
+
     """
     compute_skip_from_page(options)
 
@@ -166,9 +169,7 @@ def get_query_from_options(
 
     if options.search and search_fields:
         query.filter = {
-            '$or': [
-                {field: {'$regex': options.search}} for field in search_fields
-            ]
+            '$or': [{field: {'$regex': options.search}} for field in search_fields],
         }
 
     if options.orderby:

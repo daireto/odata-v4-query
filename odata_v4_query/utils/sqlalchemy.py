@@ -6,16 +6,17 @@ See ``apply_to_sqlalchemy_query()`` for more information.
 try:
     from sqlalchemy.orm import joinedload
     from sqlalchemy.sql import Select, or_, select
-except ImportError:  # pragma: no cover
-    raise ImportError(
+except ImportError as e:  # pragma: no cover
+    missing_dep_msg = (
         'The sqlalchemy dependency is not installed. '
         'Install it with `pip install odata-v4-query[sqlalchemy]` '
         'or install it directly with `pip install sqlalchemy`.'
-    )  # pragma: no cover
+    )
+    raise ImportError(missing_dep_msg) from e  # pragma: no cover
 
 from typing import Literal, TypeVar, overload
 
-from odata_v4_query.errors import NoRootClassFound
+from odata_v4_query.errors import NoRootClassError
 from odata_v4_query.query_parser import ODataQueryOptions
 
 from ._func import compute_skip_from_page
@@ -31,20 +32,23 @@ ParsedQuery = Select[tuple[FilterType, ...]] | Select
 
 @overload
 def get_query_root_cls(
-    query: Query[T], raise_on_none: Literal[True]
+    query: Query[T],
+    raise_on_none: Literal[True],
 ) -> type[T]: ...
 
 
 @overload
 def get_query_root_cls(
-    query: Query[T], raise_on_none: bool = False
+    query: Query[T],
+    raise_on_none: bool = False,
 ) -> type[T] | None: ...
 
 
 def get_query_root_cls(
-    query: Query[T], raise_on_none: bool = False
+    query: Query[T],
+    raise_on_none: bool = False,
 ) -> type[T] | None:
-    """Returns the root class of a query.
+    """Return the root class of a query.
 
     Returns the class of the first column of the query, this is:
     - When selecting specific columns, returns the class of
@@ -68,7 +72,7 @@ def get_query_root_cls(
 
     Raises
     ------
-    ValueError
+    NoRootClassError
         If no root class is found and ``raise_on_none`` is True.
 
     Examples
@@ -113,7 +117,8 @@ def get_query_root_cls(
     >>> get_query_root_cls(query, raise_on_none=True)
     Traceback (most recent call last):
         ...
-    ValueError: could not find root class of query: <...>
+    NoRootClassError: could not find root class of query: <...>
+
     """
     for col_desc in query.column_descriptions:
         entity = col_desc.get('entity')
@@ -121,7 +126,7 @@ def get_query_root_cls(
             return entity
 
     if raise_on_none:
-        raise ValueError(f'could not find root class of query: {query}')
+        raise NoRootClassError(str(query))
 
     return None
 
@@ -142,12 +147,12 @@ def apply_to_sqlalchemy_query(
 ) -> Select: ...
 
 
-def apply_to_sqlalchemy_query(
+def apply_to_sqlalchemy_query(  # noqa: C901, PLR0912
     options: ODataQueryOptions,
     model_or_query: type[FilterType] | Select,
     search_fields: list[str] | None = None,
 ) -> ParsedQuery:
-    """Applies OData query options to a SQLAlchemy query.
+    """Apply OData query options to a SQLAlchemy query.
 
     If the ``$page`` option is used, it is converted to ``$skip``
     and ``$top``. If ``$top`` is not provided, it defaults to 100.
@@ -215,6 +220,7 @@ def apply_to_sqlalchemy_query(
     ...     select(User),
     ...     search_fields=['name', 'email']
     ... )
+
     """
     compute_skip_from_page(options)
 
@@ -233,7 +239,7 @@ def apply_to_sqlalchemy_query(
 
     if options.filter_:
         if not root_cls:
-            raise NoRootClassFound(str(query), '$filter')
+            raise NoRootClassError(str(query), '$filter')
 
         parser = SQLAlchemyFilterNodeParser(root_cls)
         filters = parser.parse(options.filter_)
@@ -241,20 +247,20 @@ def apply_to_sqlalchemy_query(
 
     if options.search and search_fields:
         if not root_cls:
-            raise NoRootClassFound(str(query), '$search')
+            raise NoRootClassError(str(query), '$search')
 
         query = query.where(
             or_(
                 *[
                     getattr(root_cls, field).ilike(f'%{options.search}%')
                     for field in search_fields
-                ]
-            )
+                ],
+            ),
         )
 
     if options.orderby:
         if not root_cls:
-            raise NoRootClassFound(str(query), '$orderby')
+            raise NoRootClassError(str(query), '$orderby')
 
         for item in options.orderby:
             if item.direction == 'asc':
@@ -264,17 +270,17 @@ def apply_to_sqlalchemy_query(
 
     if options.expand:
         if not root_cls:
-            raise NoRootClassFound(str(query), '$expand')
+            raise NoRootClassError(str(query), '$expand')
 
         for field in options.expand:
             query = query.options(joinedload(getattr(root_cls, field)))
 
     if options.select:
         if not root_cls:
-            raise NoRootClassFound(str(query), '$select')
+            raise NoRootClassError(str(query), '$select')
 
         query = query.with_only_columns(
-            *[getattr(root_cls, field) for field in options.select]
+            *[getattr(root_cls, field) for field in options.select],
         )
 
     return query

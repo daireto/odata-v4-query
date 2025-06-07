@@ -2,8 +2,11 @@ from odata_v4_query.definitions import DEFAULT_LIMIT
 from odata_v4_query.query_parser import ODataQueryOptions
 
 
-def compute_skip_from_page(options: ODataQueryOptions, default_limit: int = DEFAULT_LIMIT) -> None:
-    """Computes $skip from $page.
+def compute_skip_from_page(
+    options: ODataQueryOptions,
+    default_limit: int = DEFAULT_LIMIT,
+) -> None:
+    """Compute $skip from $page.
 
     If ``$top`` is not provided, it defaults to the
     ``odata_v4_query.definitions.DEFAULT_LIMIT`` value.

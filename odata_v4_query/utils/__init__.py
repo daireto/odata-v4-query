@@ -1,5 +1,4 @@
-"""Utility functions for applying OData query options
-to ORM/ODM queries.
+"""Utility functions for applying OData query options to ORM/ODM queries.
 
 You to need to install the required dependencies for the
 ORM/ODM you want to use.
