@@ -2,7 +2,21 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 from .definitions import OPERATOR_PRECEDENCE
-from .errors import EvaluateError, ParseError
+from .errors import (
+    CommaOrClosingParenthesisExpectedError,
+    MissingClosingParenthesisError,
+    OpeningParenthesisExpectedError,
+    UnexpectedEndOfExpressionError,
+    UnexpectedNullFunctionNameError,
+    UnexpectedNullIdentifierError,
+    UnexpectedNullListError,
+    UnexpectedNullLiteralError,
+    UnexpectedNullNodeTypeError,
+    UnexpectedNullOperandError,
+    UnexpectedNullOperatorError,
+    UnexpectedTokenError,
+    UnknownNodeTypeError,
+)
 from .filter_tokenizer import (
     ODataFilterTokenizer,
     ODataFilterTokenizerProtocol,
@@ -115,9 +129,9 @@ class ODataFilterParser:
 
         Raises
         ------
-        EvaluateError
+        UnexpectedNullNodeTypeError
             If node type is None.
-        EvaluateError
+        UnknownNodeTypeError
             If node type is unknown.
 
         Examples
@@ -130,7 +144,7 @@ class ODataFilterParser:
 
         """
         if not node.type_:
-            raise EvaluateError('node type cannot be None')
+            raise UnexpectedNullNodeTypeError(repr(node))
 
         handlers = {
             'literal': self._evaluate_literal,
@@ -143,7 +157,7 @@ class ODataFilterParser:
 
         handler = handlers.get(node.type_)
         if not handler:
-            raise EvaluateError(f'unknown node type: {node.type_!r}')
+            raise UnknownNodeTypeError(node.type_)
 
         return handler(node)
 
@@ -171,12 +185,6 @@ class ODataFilterParser:
         -------
         FilterNode
             AST node representing the parsed expression.
-
-        Raises
-        ------
-        ParseError
-            If an invalid token is encountered or if the expression
-            structure is invalid.
 
         Notes
         -----
@@ -226,55 +234,48 @@ class ODataFilterParser:
 
         Raises
         ------
-        ParseError
+        UnexpectedEndOfExpressionError
             If an unexpected end of expression is reached.
-        ParseError
-            If an unexpected end of value list is reached.
-        ParseError
-            If token is neither a comma nor an closing parenthesis
-            in the ``in`` operator case.
-        ParseError
-            If closing parenthesis is missing.
-        ParseError
+        OpeningParenthesisExpectedError
+            If an opening parenthesis is expected, but not found.
+        UnexpectedTokenError
             If an unexpected token is encountered.
 
         """
         if not tokens:
-            raise ParseError('unexpected end of expression')
+            raise UnexpectedEndOfExpressionError
 
         token = tokens.pop(0)
 
         if token.type_ == TokenType.LITERAL:
             return FilterNode(type_='literal', value=token.value)
 
-        elif token.type_ == TokenType.IDENTIFIER:
+        if token.type_ == TokenType.IDENTIFIER:
             if token.value == 'null' and self.parse_null_identifier:
                 return FilterNode(type_='identifier', value=None)
 
             return FilterNode(type_='identifier', value=token.value)
 
-        elif token.type_ == TokenType.FUNCTION:
+        if token.type_ == TokenType.FUNCTION:
             func_name = token.value
 
             if not tokens or tokens[0].type_ != TokenType.LPAREN:
-                raise ParseError(f"expected '(' after {func_name!r} function name")
+                raise OpeningParenthesisExpectedError(str(func_name))
 
             tokens.pop(0)  # consume '('
 
             args = self._parse_list_values(tokens)
             return FilterNode(type_='function', value=func_name, arguments=args)
 
-        elif token.type_ == TokenType.LPAREN:
+        if token.type_ == TokenType.LPAREN:
             values = self._parse_list_values(tokens)
             return FilterNode(type_='list', arguments=values)
 
-        elif token.type_ == TokenType.OPERATOR and token.value == 'not':
+        if token.type_ == TokenType.OPERATOR and token.value == 'not':
             expr = self._parse_expression(tokens, self._get_operator_precedence('not'))
             return FilterNode(type_='operator', value='not', right=expr)
 
-        raise ParseError(
-            f'unexpected token {token.value!r} at position {token.position}'
-        )
+        raise UnexpectedTokenError(str(token.value), token.position)
 
     def _parse_list_values(self, tokens: list[Token]) -> list[FilterNode]:
         """Parse a list of values without consuming the opening parenthesis.
@@ -294,16 +295,16 @@ class ODataFilterParser:
 
         Raises
         ------
-        ParseError
+        MissingClosingParenthesisError
             If closing parenthesis is missing.
-        ParseError
+        CommaOrClosingParenthesisExpectedError
             If no comma nor closing parenthesis is found.
-        ParseError
+        CommaOrClosingParenthesisExpectedError
             If token is neither a comma nor an closing parenthesis.
 
         """
         if not tokens:
-            raise ParseError('missing closing parenthesis')
+            raise MissingClosingParenthesisError
 
         values = []
 
@@ -317,7 +318,10 @@ class ODataFilterParser:
             values.append(vnode)
 
             if not tokens:
-                raise ParseError(f"expected ',' or ')' after {vnode.value!r}")
+                raise CommaOrClosingParenthesisExpectedError(
+                    value=str(vnode.value),
+                    expected_after=True,
+                )
 
             # check for comma or closing parenthesis
             if tokens[0].type_ == TokenType.COMMA:
@@ -326,7 +330,7 @@ class ODataFilterParser:
                 tokens.pop(0)  # consume ')'
                 break
             else:
-                raise ParseError(f"expected ',' or ')', got {tokens[0].value!r}")
+                raise CommaOrClosingParenthesisExpectedError(value=str(tokens[0].value))
 
         return values
 
@@ -361,12 +365,12 @@ class ODataFilterParser:
 
         Raises
         ------
-        EvaluateError
+        UnexpectedNullLiteralError
             If node value is None.
 
         """
         if node.value is None:
-            raise EvaluateError('unexpected null literal')
+            raise UnexpectedNullLiteralError(repr(node))
 
         # if it's numeric, don't add quotes
         if isinstance(node.value, (int, float)):
@@ -395,7 +399,7 @@ class ODataFilterParser:
 
         Raises
         ------
-        EvaluateError
+        UnexpectedNullIdentifierError
             If node value is None.
 
         """
@@ -403,7 +407,7 @@ class ODataFilterParser:
             if self.parse_null_identifier:
                 return 'null'
 
-            raise EvaluateError('unexpected null identifier')
+            raise UnexpectedNullIdentifierError(repr(node))
 
         return node.value
 
@@ -424,12 +428,12 @@ class ODataFilterParser:
 
         Raises
         ------
-        EvaluateError
+        UnexpectedNullListError
             If node arguments is None.
 
         """
         if node.arguments is None:
-            raise EvaluateError('unexpected null list')
+            raise UnexpectedNullListError(repr(node))
 
         values = [self.evaluate(arg) for arg in node.arguments]
 
@@ -453,26 +457,26 @@ class ODataFilterParser:
 
         Raises
         ------
-        EvaluateError
+        UnexpectedNullOperatorError
             If node value is None.
-        EvaluateError
+        UnexpectedNullOperandError
             If node left or right is None.
-        EvaluateError
+        UnexpectedNullOperandError
             If node value is not ``not`` and node left
             or right is None.
 
         """
         if not node.value:
-            raise EvaluateError('unexpected null operator')
+            raise UnexpectedNullOperatorError(repr(node))
 
         if node.value == 'not':
             if not node.right:
-                raise EvaluateError('unexpected null operand for operator "not"')
+                raise UnexpectedNullOperandError(node.value)
 
             return f'not {self.evaluate(node.right)}'
 
         if not node.left or not node.right:
-            raise EvaluateError(f'unexpected null operand for operator {node.value!r}')
+            raise UnexpectedNullOperandError(node.value)
 
         return f'{self.evaluate(node.left)} {node.value} {self.evaluate(node.right)}'
 
@@ -491,12 +495,12 @@ class ODataFilterParser:
 
         Raises
         ------
-        EvaluateError
+        UnexpectedNullFunctionNameError
             If node value is None.
 
         """
         if not node.value:
-            raise EvaluateError('unexpected null function name')
+            raise UnexpectedNullFunctionNameError(repr(node))
 
         args = self._evaluate_list(node, wrap_in_parentheses=False)
         return f'{node.value}({args})'
