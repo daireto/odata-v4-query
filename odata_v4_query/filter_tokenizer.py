@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
 
-from .definitions import DEFAULT_FUNCTIONS, DEFAULT_OPERATORS
+from .definitions import FUNCTION_ARITY, OPERATOR_ARITY
 from .errors import InvalidNumberError, TokenizeError
 
 
@@ -25,66 +25,17 @@ class Token:
 
 
 class ODataFilterTokenizerProtocol(Protocol):
-
     def tokenize(self, expr: str) -> list[Token]: ...
 
 
 class ODataFilterTokenizer:
     """Tokenizer for OData V4 filter expressions."""
 
-    __operators: dict[str, int]
-    """Supported operators and their arity."""
-
-    __functions: dict[str, int]
-    """Supported functions and their arity."""
-
     __position: int
-    """Current position in the filter expression."""
-
     __tokens: list[Token]
-    """Tokens extracted from the filter expression."""
-
-    def __init__(
-        self,
-        operators: dict[str, int] | None = None,
-        functions: dict[str, int] | None = None,
-    ) -> None:
-        """Tokenizer for OData V4 filter expressions.
-
-        Parameters
-        ----------
-        operators : dict[str, int] | None, optional
-            Dictionary of supported operators and their arity,
-            by default None.
-        functions : dict[str, int] | None, optional
-            Dictionary of supported functions and their arity,
-            by default None.
-        """
-        self.__operators = operators or DEFAULT_OPERATORS
-        self.__functions = functions or DEFAULT_FUNCTIONS
-
-    def set_operators(self, operators: dict[str, int]) -> None:
-        """Sets the supported operators.
-
-        Parameters
-        ----------
-        operators : dict[str, int]
-            Dictionary of supported operators and their arity.
-        """
-        self.__operators = operators  # pragma: no cover
-
-    def set_functions(self, functions: dict[str, int]) -> None:
-        """Sets the supported functions.
-
-        Parameters
-        ----------
-        functions : dict[str, int]
-            Dictionary of supported functions and their arity.
-        """
-        self.__functions = functions  # pragma: no cover
 
     def tokenize(self, expr: str) -> list[Token]:
-        """Converts filter expression string into tokens.
+        """Convert filter expression string into tokens.
 
         Parameters
         ----------
@@ -115,6 +66,7 @@ class ODataFilterTokenizer:
         Token(type_=<TokenType.IDENTIFIER: 'IDENTIFIER'>, value='age', position=19)
         Token(type_=<TokenType.OPERATOR: 'OPERATOR'>, value='gt', position=23)
         Token(type_=<TokenType.LITERAL: 'LITERAL'>, value='25', position=26)
+
         """
         self.__position = 0
         self.__tokens = []
@@ -122,13 +74,13 @@ class ODataFilterTokenizer:
 
         char_handlers = {
             '(': lambda: self.__tokens.append(
-                Token(TokenType.LPAREN, '(', self.__position)
+                Token(TokenType.LPAREN, '(', self.__position),
             ),
             ')': lambda: self.__tokens.append(
-                Token(TokenType.RPAREN, ')', self.__position)
+                Token(TokenType.RPAREN, ')', self.__position),
             ),
             ',': lambda: self.__tokens.append(
-                Token(TokenType.COMMA, ',', self.__position)
+                Token(TokenType.COMMA, ',', self.__position),
             ),
             "'": lambda: self._handle_string_literal(expr),
             '"': lambda: self._handle_string_literal(expr),
@@ -160,27 +112,27 @@ class ODataFilterTokenizer:
                 value, pos = self._extract_identifier(expr)
                 lowercased_value = value.lower()
 
-                if lowercased_value in self.__operators:
+                if lowercased_value in OPERATOR_ARITY:
                     self.__tokens.append(
                         Token(
                             TokenType.OPERATOR,
                             lowercased_value,
                             pos,
-                            self.__operators[lowercased_value],
-                        )
+                            OPERATOR_ARITY[lowercased_value],
+                        ),
                     )
-                elif lowercased_value in self.__functions:
+                elif lowercased_value in FUNCTION_ARITY:
                     self.__tokens.append(
                         Token(
                             TokenType.FUNCTION,
                             lowercased_value,
                             pos,
-                            self.__functions[lowercased_value],
-                        )
+                            FUNCTION_ARITY[lowercased_value],
+                        ),
                     )
                 else:
                     self.__tokens.append(
-                        Token(TokenType.IDENTIFIER, value, pos)
+                        Token(TokenType.IDENTIFIER, value, pos),
                     )
                 continue
 
@@ -189,18 +141,19 @@ class ODataFilterTokenizer:
         return self.__tokens
 
     def _handle_string_literal(self, expr: str) -> None:
-        """Handles string literals.
+        """Handle string literals.
 
         Parameters
         ----------
         expr : str
             Expression to extract the string literal from.
+
         """
         value, pos = self._extract_string_literal(expr)
         self.__tokens.append(Token(TokenType.LITERAL, value, pos))
 
     def _extract_string_literal(self, expr: str) -> tuple[str, int]:
-        """Extracts a string literal from the expression.
+        """Extract a string literal from the expression.
 
         Parameters
         ----------
@@ -212,6 +165,7 @@ class ODataFilterTokenizer:
         tuple[str, int]
             A tuple containing the string literal and the position of
             the first character of the string literal.
+
         """
         start_pos = self.__position
         expr_len = len(expr)
@@ -231,7 +185,7 @@ class ODataFilterTokenizer:
                 continue
 
             # append non-quote characters
-            if char != "'" and char != '"':
+            if char not in {"'", '"'}:
                 chars.append(char)
                 end_pos += 1
                 continue
@@ -243,7 +197,7 @@ class ODataFilterTokenizer:
         return ''.join(chars), start_pos
 
     def _extract_number(self, expr: str) -> tuple[int | float, int]:
-        """Extracts a number from the expression.
+        """Extract a number from the expression.
 
         Parameters
         ----------
@@ -260,6 +214,7 @@ class ODataFilterTokenizer:
         ------
         InvalidNumberError
             If the number is invalid.
+
         """
         start_pos = self.__position
         expr_len = len(expr)
@@ -273,7 +228,8 @@ class ODataFilterTokenizer:
             elif char == '.':
                 if has_decimal:
                     raise InvalidNumberError(
-                        expr[start_pos:end_pos], start_pos
+                        expr[start_pos:end_pos],
+                        start_pos,
                     )
 
                 has_decimal = True
@@ -290,7 +246,7 @@ class ODataFilterTokenizer:
         return number, start_pos
 
     def _extract_identifier(self, expr: str) -> tuple[str, int]:
-        """Extracts an identifier from the expression.
+        """Extract an identifier from the expression.
 
         Parameters
         ----------
@@ -302,6 +258,7 @@ class ODataFilterTokenizer:
         tuple[str, int]
             A tuple containing the identifier and the position of
             the first character of the identifier.
+
         """
         start_pos = self.__position
         expr_len = len(expr)
