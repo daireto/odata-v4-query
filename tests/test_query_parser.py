@@ -1,11 +1,15 @@
 import pytest
 
-from odata_v4_query.errors import NoPositiveError, UnsupportedFormatError
+from odata_v4_query.errors import (
+    InvalidOrderDirectionError,
+    NoNumericValueError,
+    NoPositiveError,
+    UnsupportedFormatError,
+)
 from odata_v4_query.query_parser import ODataQueryParser
 
 
 class TestODataQueryParser:
-
     parser = ODataQueryParser()
 
     def test_parse_url(self):
@@ -49,9 +53,9 @@ class TestODataQueryParser:
     def test_parse_filter_and_evaluate(self):
         query_string = "$filter=name eq 'John' and age gt 25"
         options = self.parser.parse_query_string(query_string)
-        assert options.filter_ is not None
-
         EXPECTED = "name eq 'John' and age gt 25"
+
+        assert options.filter_ is not None
         assert self.parser.evaluate(options) == EXPECTED
         assert self.parser.evaluate(options.filter_) == EXPECTED
 
@@ -63,9 +67,7 @@ class TestODataQueryParser:
         assert options.format_ == 'json'
 
     def test_parse_orderby(self):
-        options = self.parser.parse_query_string(
-            '$orderby=name asc,age desc,,email'
-        )
+        options = self.parser.parse_query_string('$orderby=name asc,age desc,,email')
         assert options.orderby is not None
         assert options.orderby[0].field == 'name'
         assert options.orderby[0].direction == 'asc'
@@ -94,19 +96,34 @@ class TestODataQueryParser:
         options = self.parser.parse_query_string('$page=10')
         assert options.page == 10
 
-    def test_parse_error(self):
-        # unsupported format
+    def test_no_numeric_skip(self):
+        with pytest.raises(NoNumericValueError):
+            self.parser.parse_query_string('$skip=ten')
+
+    def test_no_numeric_top(self):
+        with pytest.raises(NoNumericValueError):
+            self.parser.parse_query_string('$top=ten')
+
+    def test_no_numeric_page(self):
+        with pytest.raises(NoNumericValueError):
+            self.parser.parse_query_string('$page=ten')
+
+    def test_unsupported_format(self):
         with pytest.raises(UnsupportedFormatError):
             self.parser.parse_query_string('$format=html')
 
-        # invalid skip
+    def test_invalid_order_direction(self):
+        with pytest.raises(InvalidOrderDirectionError):
+            self.parser.parse_query_string('$orderby=name xyz')
+
+    def test_invalid_skip(self):
         with pytest.raises(NoPositiveError):
             self.parser.parse_query_string('$skip=-10')
 
-        # invalid top
+    def test_invalid_top(self):
         with pytest.raises(NoPositiveError):
             self.parser.parse_query_string('$top=-10')
 
-        # invalid page
+    def test_invalid_page(self):
         with pytest.raises(NoPositiveError):
             self.parser.parse_query_string('$page=-10')
