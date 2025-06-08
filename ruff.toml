@@ -1,9 +1,8 @@
-extend-exclude = ["tests"]
-
 [format]
 quote-style = "single"
 
 [lint]
+exclude = ["tests"]
 select = ["ALL"]
 ignore = [
     "ANN002",  # Missing type annotation for `*args`
