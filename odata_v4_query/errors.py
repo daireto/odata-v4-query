@@ -124,9 +124,10 @@ class NoRootClassError(ODataParserError, ValueError):
             Option name, by default None.
 
         """
-        super().__init__(f'could not find root class of query {query!r}')
+        message = f'could not find root class of query {query!r}'
         if option_name:
-            self.add_note(f'cannot apply {option_name} option')
+            message += f' for option {option_name!r}'
+        super().__init__(message)
 
 
 class TokenizeError(ODataParserError, ValueError):
