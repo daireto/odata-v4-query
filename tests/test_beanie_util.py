@@ -17,6 +17,25 @@ from odata_v4_query.utils.beanie import apply_to_beanie_query
 
 from ._core.beanie import User, UserProjection, get_client, seed_data
 
+"""
+Monkey patching AggregationQuery to add a modified get_cursor
+that does not await the ``aggregate`` call. This is a workaround
+for the ``TypeError: object AsyncIOMotorLatentCommandCursor can't be used in 'await' expression``
+error raised with beanie>1.23.0 and mongomock-motor>0.0.35.
+"""
+try:
+    from beanie.odm.queries.aggregation import AggregationQuery
+
+    async def get_cursor(self):
+        aggregation_pipeline = self.get_aggregation_pipeline()
+        return self.document_model.get_pymongo_collection().aggregate(
+            aggregation_pipeline, session=self.session, **self.pymongo_kwargs
+        )
+
+    AggregationQuery.get_cursor = get_cursor
+except ImportError as e:
+    pass
+
 
 @pytest_asyncio.fixture(autouse=True)
 async def client():
