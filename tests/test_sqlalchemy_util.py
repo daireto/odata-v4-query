@@ -198,6 +198,13 @@ class TestSQLAlchemy:
         assert result[1].posts[0].title == 'Post 3'
         assert result[1].posts[1].title == 'Post 4'
 
+    def test_count(self, session: Session):
+        options = self.parser.parse_query_string('$count=true')
+        query = apply_to_sqlalchemy_query(options, User)
+        result = session.execute(query).all()
+        assert len(result) == 1
+        assert result[0][0] == 10
+
     def test_select(self, session: Session):
         options = self.parser.parse_query_string('$select=name,email')
         query = apply_to_sqlalchemy_query(options, User)
