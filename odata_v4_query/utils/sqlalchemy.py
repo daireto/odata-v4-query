@@ -6,6 +6,7 @@ See ``apply_to_sqlalchemy_query()`` for more information.
 try:
     from sqlalchemy.orm import joinedload
     from sqlalchemy.sql import Select, or_, select
+    from sqlalchemy.sql.functions import func
 except ImportError as e:  # pragma: no cover
     missing_dep_msg = (
         'The sqlalchemy dependency is not installed. '
@@ -166,9 +167,11 @@ def apply_to_sqlalchemy_query(  # noqa: C901, PLR0912
     `joined eager loading <https://docs.sqlalchemy.org/en/14/orm/loading_relationships.html#sqlalchemy.orm.joinedload>`_
     using left outer join.
 
+    The ``$count`` has priority over ``$select``, so if both are
+    provided, the ``$select`` is ignored.
+
     .. note::
-        The ``$count`` and ``$format`` options won't be applied.
-        You need to handle them manually.
+        The ``$format`` option won't be applied. You need to handle it manually.
 
     Parameters
     ----------
@@ -275,7 +278,9 @@ def apply_to_sqlalchemy_query(  # noqa: C901, PLR0912
         for field in options.expand:
             query = query.options(joinedload(getattr(root_cls, field)))
 
-    if options.select:
+    if options.count:
+        query = query.with_only_columns(func.count('*'), maintain_column_froms=True)
+    elif options.select:
         if not root_cls:
             raise NoRootClassError(str(query), '$select')
 
