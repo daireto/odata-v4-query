@@ -168,7 +168,9 @@ class TestBeanie:
         assert result[1]['age'] == 32
 
     def test_filter_substring_function(self, db: Database):
-        options = self.parser.parse_query_string("$filter=substring(name, 1, 3) eq 'ohn'")
+        options = self.parser.parse_query_string(
+            "$filter=substring(name, 1, 3) eq 'ohn'"
+        )
         with pytest.raises(AggregationOperatorNotSupportedError):
             get_query_from_options(options)
 

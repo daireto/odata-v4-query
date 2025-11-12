@@ -182,7 +182,9 @@ class TestBeanie:
 
     @pytest.mark.asyncio
     async def test_filter_substring_function(self):
-        options = self.parser.parse_query_string("$filter=substring(name, 1, 3) eq 'ohn'")
+        options = self.parser.parse_query_string(
+            "$filter=substring(name, 1, 3) eq 'ohn'"
+        )
         with pytest.raises(AggregationOperatorNotSupportedError):
             apply_to_beanie_query(options, User)
 
