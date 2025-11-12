@@ -2,7 +2,7 @@
 
 from typing import Any, TypeVar
 
-from sqlalchemy import not_
+from sqlalchemy import func, not_
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql.elements import BooleanClauseList
 from sqlalchemy.sql.operators import (
@@ -71,15 +71,11 @@ class SQLAlchemyFilterNodeParser(BaseFilterNodeParser):
             A SQLAlchemy model class.
 
         """
+        super().__init__()
         self.model = model
 
     def parse(self, filter_node: FilterNode) -> BooleanClauseList:
         """Parse an AST to a SQLAlchemy filter expression.
-
-        .. note::
-            The ``has`` and ``nor`` operators are not supported in SQL,
-            so they are converted to a LIKE and NOT expressions,
-            respectively.
 
         Parameters
         ----------
@@ -90,6 +86,12 @@ class SQLAlchemyFilterNodeParser(BaseFilterNodeParser):
         -------
         BooleanClauseList
             SQLAlchemy filter expression.
+
+        Notes
+        -----
+        The ``has`` and ``nor`` operators are not supported in SQL,
+        so they are converted to a LIKE and NOT expressions,
+        respectively.
 
         Examples
         --------
@@ -141,6 +143,24 @@ class SQLAlchemyFilterNodeParser(BaseFilterNodeParser):
     def parse_contains(self, field: str, value: Any) -> FilterNode:
         column = getattr(self.model, field)  # type: ignore
         expr_value = column.ilike(f'%{value}%')
+        return self._get_value_filter_node(expr_value)
+
+    def parse_substring(self, field: str, start: int, length: int) -> FilterNode:
+        column = getattr(self.model, field)  # type: ignore
+        if length < 0:
+            expr_value = func.substr(column, start + 1)
+        else:
+            expr_value = func.substr(column, start + 1, length)
+        return self._get_value_filter_node(expr_value)
+
+    def parse_tolower(self, field: str) -> FilterNode:
+        column = getattr(self.model, field)  # type: ignore
+        expr_value = func.lower(column)
+        return self._get_value_filter_node(expr_value)
+
+    def parse_toupper(self, field: str) -> FilterNode:
+        column = getattr(self.model, field)  # type: ignore
+        expr_value = func.upper(column)
         return self._get_value_filter_node(expr_value)
 
     def parse_membership_operators(
