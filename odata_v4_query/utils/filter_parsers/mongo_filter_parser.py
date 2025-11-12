@@ -16,7 +16,10 @@ from odata_v4_query.definitions import (
     NOT,
     OR,
 )
-from odata_v4_query.errors import UnknownOperatorError
+from odata_v4_query.errors import (
+    AggregationOperatorNotSupportedError,
+    UnknownOperatorError,
+)
 from odata_v4_query.query_parser import FilterNode
 
 from .base_filter_parser import BaseFilterNodeParser
@@ -79,6 +82,21 @@ class MongoDBFilterNodeParser(BaseFilterNodeParser):
             },
         }
         return self._get_value_filter_node(expr_value)
+
+    def parse_substring(self, *_) -> FilterNode:
+        func_name = 'substring'
+        op = '$substr'
+        raise AggregationOperatorNotSupportedError(func_name, op)
+
+    def parse_tolower(self, *_) -> FilterNode:
+        func_name = 'tolower'
+        op = '$toLower'
+        raise AggregationOperatorNotSupportedError(func_name, op)
+
+    def parse_toupper(self, *_) -> FilterNode:
+        func_name = 'toupper'
+        op = '$toUpper'
+        raise AggregationOperatorNotSupportedError(func_name, op)
 
     def parse_membership_operators(
         self,
