@@ -1,6 +1,8 @@
 """Base class for filter node parsers."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from odata_v4_query.definitions import (
@@ -9,6 +11,7 @@ from odata_v4_query.definitions import (
     CONTAINS,
     ENDSWITH,
     EQ,
+    FUNCTION_ARITY,
     HAS,
     IN,
     LOGICAL_OPERATORS,
@@ -16,20 +19,28 @@ from odata_v4_query.definitions import (
     NIN,
     OR,
     STARTSWITH,
+    SUBSTRING,
+    TOLOWER,
+    TOUPPER,
 )
 from odata_v4_query.errors import (
-    TwoArgumentsExpectedError,
     UnexpectedEmptyArgumentsError,
     UnexpectedNullFiltersError,
     UnexpectedNullFunctionNameError,
     UnexpectedNullOperandError,
     UnexpectedNullOperatorError,
+    UnexpectedNumberOfArgumentsError,
+    UnexpectedTypeError,
     UnknownFunctionError,
     UnknownOperatorError,
 )
 from odata_v4_query.query_parser import FilterNode
 
-_TWO_ARGUMENTS_VALUE = 2
+
+@dataclass(frozen=True, kw_only=True)
+class FunctionParser:
+    func: Callable[..., FilterNode]
+    arg_types: tuple[type, ...] | None = None
 
 
 class BaseFilterNodeParser(ABC):
@@ -40,12 +51,28 @@ class BaseFilterNodeParser(ABC):
     - **parse_startswith**: Parse a startswith function.
     - **parse_endswith**: Parse an endswith function.
     - **parse_contains**: Parse a contains function.
+    - **parse_substring**: Parse a substring function.
+    - **parse_tolower**: Parse a tolower function.
+    - **parse_toupper**: Parse a toupper function.
     - **parse_membership_operators**: Parse an in/nin operator.
     - **parse_comparison_operators**: Parse an eq/ne/gt/ge/lt/le operator.
     - **parse_has_operator**: Parse a has operator.
     - **parse_and_or_operators**: Parse an and/or operator.
     - **parse_not_nor_operators**: Parse a not/nor operator.
     """
+
+    def __init__(self) -> None:
+        self._functions_map = {
+            STARTSWITH: FunctionParser(func=self.parse_startswith, arg_types=(str,)),
+            ENDSWITH: FunctionParser(func=self.parse_endswith, arg_types=(str,)),
+            CONTAINS: FunctionParser(func=self.parse_contains, arg_types=(str,)),
+            SUBSTRING: FunctionParser(
+                func=self.parse_substring,
+                arg_types=(int, int),
+            ),
+            TOLOWER: FunctionParser(func=self.parse_tolower),
+            TOUPPER: FunctionParser(func=self.parse_toupper),
+        }
 
     @abstractmethod
     def parse_startswith(self, field: str, value: Any) -> FilterNode: ...
@@ -55,6 +82,15 @@ class BaseFilterNodeParser(ABC):
 
     @abstractmethod
     def parse_contains(self, field: str, value: Any) -> FilterNode: ...
+
+    @abstractmethod
+    def parse_substring(self, field: str, start: int, length: int) -> FilterNode: ...
+
+    @abstractmethod
+    def parse_tolower(self, field: str) -> FilterNode: ...
+
+    @abstractmethod
+    def parse_toupper(self, field: str) -> FilterNode: ...
 
     @abstractmethod
     def parse_membership_operators(
@@ -160,12 +196,12 @@ class BaseFilterNodeParser(ABC):
             If function name is None.
         UnexpectedEmptyArgumentsError
             If arguments of the function are empty.
-        TwoArgumentsExpectedError
-            If the function expects 2 arguments and more than 2 are provided.
         UnexpectedNullOperandError
             If an operand is None.
         UnknownFunctionError
             If the function is unknown.
+        UnexpectedNumberOfArgumentsError
+            If the number of arguments does not match the expected number.
 
         """
         if not func_node.value:
@@ -174,26 +210,23 @@ class BaseFilterNodeParser(ABC):
         if not func_node.arguments:
             raise UnexpectedEmptyArgumentsError(func_node.value)
 
-        if not self._has_two_arguments(func_node.arguments):
-            raise TwoArgumentsExpectedError(func_node.value)
+        parser = self._functions_map.get(func_node.value)
+        if parser is None:
+            raise UnknownFunctionError(func_node.value)
 
-        field, value = (
-            func_node.arguments[0].value,
-            func_node.arguments[1].value,
-        )
-        if field is None or value is None:
+        expected_args = FUNCTION_ARITY[func_node.value]
+        if len(func_node.arguments) != expected_args:
+            raise UnexpectedNumberOfArgumentsError(
+                func_node.value,
+                expected_args,
+                len(func_node.arguments),
+            )
+
+        field = func_node.arguments[0].value
+        if field is None:
             raise UnexpectedNullOperandError(func_node.value)
 
-        if func_node.value == STARTSWITH:
-            return self.parse_startswith(field, value)
-
-        if func_node.value == ENDSWITH:
-            return self.parse_endswith(field, value)
-
-        if func_node.value == CONTAINS:
-            return self.parse_contains(field, value)
-
-        raise UnknownFunctionError(func_node.value)
+        return self._get_function_node(func_node.value, field, func_node.arguments[1:])
 
     def parse_operator_node(
         self,
@@ -240,6 +273,36 @@ class BaseFilterNodeParser(ABC):
             return self._parse_logical(op_node.value, left, right)
 
         raise UnknownOperatorError(op_node.value)
+
+    def _get_function_node(
+        self,
+        function_name: str,
+        field: str,
+        arguments: list[Any],
+    ) -> FilterNode:
+        parser = self._functions_map.get(function_name)
+        if parser is None:  # pragma: no cover
+            raise UnknownFunctionError(function_name)
+        if not parser.arg_types:  # pragma: no cover
+            return parser.func(field)
+        if len(arguments) != len(parser.arg_types):  # pragma: no cover
+            raise UnexpectedNumberOfArgumentsError(
+                function_name,
+                len(parser.arg_types),
+                len(arguments),
+            )
+        args = []
+        for i in range(len(parser.arg_types)):
+            value = arguments[i].value
+            if value is None:
+                raise UnexpectedNullOperandError(function_name)
+            type_ = parser.arg_types[i]
+            try:
+                value = type_(value)
+            except ValueError as e:
+                raise UnexpectedTypeError(function_name, type_.__name__, value) from e
+            args.append(value)
+        return parser.func(field, *args)
 
     def _parse_comparison_or_membership(
         self,
@@ -306,9 +369,6 @@ class BaseFilterNodeParser(ABC):
             raise UnexpectedNullOperandError(operator)
 
         return self.parse_has_operator(left.value, operator, right.value)
-
-    def _has_two_arguments(self, arguments: list[FilterNode]) -> bool:
-        return len(arguments) == _TWO_ARGUMENTS_VALUE
 
     def _get_value_filter_node(self, value: Any) -> FilterNode:
         return FilterNode(type_='value', value=value)
