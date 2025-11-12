@@ -1,5 +1,27 @@
+from typing import Any
+
+
 class ODataParserError(Exception):
     """Base class for all OData parser errors."""
+
+
+class AggregationOperatorNotSupportedError(ODataParserError, NotImplementedError):
+    """Aggregation operator not supported error."""
+
+    def __init__(self, function_name: str, operator: str) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        function_name : str
+            Function name.
+        operator : str
+            MongoDB aggregation operator.
+
+        """
+        super().__init__(
+            f'Found unsupported aggregation operator {operator} in {function_name!r}.',
+        )
 
 
 class InvalidOrderDirectionError(ODataParserError, ValueError):
@@ -147,21 +169,6 @@ class TokenizeError(ODataParserError, ValueError):
         super().__init__(f'unexpected character {char!r} at position {position}')
 
 
-class TwoArgumentsExpectedError(ODataParserError, ValueError):
-    """Two arguments expected error."""
-
-    def __init__(self, function_name: str) -> None:
-        """Initialize the error.
-
-        Parameters
-        ----------
-        function_name : str
-            Function name.
-
-        """
-        super().__init__(f'expected 2 arguments for function {function_name!r}')
-
-
 class UnexpectedEmptyArgumentsError(ODataParserError, ValueError):
     """Unexpected empty arguments error."""
 
@@ -307,6 +314,27 @@ class UnexpectedNullOperatorError(ODataParserError, ValueError):
         super().__init__(f'unexpected null operator in {node_repr!r}')
 
 
+class UnexpectedNumberOfArgumentsError(ODataParserError, ValueError):
+    """Unexpected number of arguments error."""
+
+    def __init__(self, function_name: str, expected: int, got: int) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        function_name : str
+            Function name.
+        expected : int
+            Expected number of arguments.
+        got : int
+            Got number of arguments.
+
+        """
+        super().__init__(
+            f'expected {expected} arguments for function {function_name!r}, got {got}',
+        )
+
+
 class UnexpectedTokenError(ODataParserError, ValueError):
     """Unexpected token error."""
 
@@ -322,6 +350,27 @@ class UnexpectedTokenError(ODataParserError, ValueError):
 
         """
         super().__init__(f'unexpected token {token!r} at position {position}')
+
+
+class UnexpectedTypeError(ODataParserError, ValueError):
+    """Unexpected type error."""
+
+    def __init__(self, function_name: str, expected_type: str, got: Any) -> None:
+        """Initialize the error.
+
+        Parameters
+        ----------
+        function_name : str
+            Function name.
+        expected_type : str
+            Expected type.
+        got : Any
+            Got value.
+
+        """
+        super().__init__(
+            f'expected {expected_type!r} for function {function_name!r}, got {got!r}',
+        )
 
 
 class UnknownFunctionError(ODataParserError, ValueError):
