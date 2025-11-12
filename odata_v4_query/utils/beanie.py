@@ -159,6 +159,12 @@ def apply_to_beanie_query(
     #### Unsupported options
     The ``$expand`` and ``$format`` options are not supported.
 
+    #### Unsupported functions
+    The following functions are not supported:
+    - ``substring``
+    - ``tolower``
+    - ``toupper``
+
     Examples
     --------
     Assuming the following ``User`` beanie document:

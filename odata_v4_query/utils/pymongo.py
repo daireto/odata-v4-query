@@ -124,6 +124,12 @@ def get_query_from_options(
     The ``$count``, ``$expand`` and ``$format`` options are
     not supported.
 
+    #### Unsupported functions
+    The following functions are not supported:
+    - ``substring``
+    - ``tolower``
+    - ``toupper``
+
     Examples
     --------
     Usage:
