@@ -55,7 +55,7 @@ options to ORM/ODM queries such as SQLAlchemy, PyMongo and Beanie.
     - Comparison operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `in`, `nin`
     - Logical operators: `and`, `or`, `not`, `nor`
     - Collection operators: `has`
-    - String functions: `startswith`, `endswith`, `contains`
+    - String functions: `startswith`, `endswith`, `contains`, `substring`, `tolower`, `toupper`
 
 - Utility functions to apply options to ORM/ODM queries.
     - See [utility functions](#utility-functions) for more information.
@@ -179,8 +179,9 @@ query = apply_to_beanie_query(
 ```
 
 > [!NOTE]
-> The `$count`, `$expand` and `$format` options won't be applied.
-> You need to handle them manually.
+> The `$expand` and `$format` options won't be applied.
+> You may need to handle them manually. Also, the `substring`, `tolower` and
+> `toupper` functions are not supported.
 
 ### PyMongo
 
@@ -238,7 +239,8 @@ query = get_query_from_options(options, parse_select=True)
 
 > [!NOTE]
 > The `$count`, `$expand` and `$format` options won't be applied.
-> You need to handle them manually.
+> You may need to handle them manually. Also, the `substring`, `tolower` and
+> `toupper` functions are not supported.
 
 ### SQLAlchemy
 
@@ -292,7 +294,7 @@ query = apply_to_sqlalchemy_query(options, User)
 ```
 
 > [!NOTE]
-> The `$count` and `$format` options won't be applied. You need to handle them
+> The `$format` option won't be applied. You may need to handle it
 > manually. Also, the `has` and `nor` operators are not supported in SQL,
 > so they are converted to a `LIKE` and `NOT` expressions, respectively.
 
