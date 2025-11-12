@@ -155,24 +155,6 @@ def apply_to_sqlalchemy_query(  # noqa: C901, PLR0912
 ) -> ParsedQuery:
     """Apply OData query options to a SQLAlchemy query.
 
-    If the ``$page`` option is used, it is converted to ``$skip``
-    and ``$top``. If ``$top`` is not provided, it defaults to 100.
-    The ``$skip`` is computed as ``(page - 1) * top``. If ``$skip``
-    is provided, it is overwritten.
-
-    The ``$search`` option is only supported if ``search_fields``
-    is provided.
-
-    The ``$expand`` option performs a
-    `joined eager loading <https://docs.sqlalchemy.org/en/14/orm/loading_relationships.html#sqlalchemy.orm.joinedload>`_
-    using left outer join.
-
-    The ``$count`` has priority over ``$select``, so if both are
-    provided, the ``$select`` is ignored.
-
-    .. note::
-        The ``$format`` option won't be applied. You need to handle it manually.
-
     Parameters
     ----------
     options : ODataQueryOptions
@@ -191,6 +173,32 @@ def apply_to_sqlalchemy_query(  # noqa: C901, PLR0912
     ------
     NoRootClassFound
         If the root class of the query cannot be found.
+
+    Notes
+    -----
+    #### Pagination
+    If ``$page`` option is provided, ``$skip`` is overwritten
+    using ``odata_v4_query.utils.compute_skip_from_page()``.
+    If ``$top`` is not provided, it defaults to
+    ``odata_v4_query.definitions.DEFAULT_LIMIT``.
+
+    #### Search
+    The ``$search`` option is only supported if ``search_fields``
+    is provided.
+
+    #### Expand
+    The ``$expand`` option performs a
+    `joined eager loading <https://docs.sqlalchemy.org/en/14/orm/loading_relationships.html#sqlalchemy.orm.joinedload>`_
+    using left outer join.
+
+    #### Count
+    If ``$count`` is provided, the query is returned with a
+    ``count(*)`` column. The columns of the original query
+    are discarded. Also, ``$orderby``, ``$expand`` and ``$select``
+    are ignored.
+
+    #### Unsupported options
+    The ``$format`` option is not supported.
 
     Examples
     --------
@@ -261,6 +269,9 @@ def apply_to_sqlalchemy_query(  # noqa: C901, PLR0912
             ),
         )
 
+    if options.count:
+        return query.with_only_columns(func.count('*'), maintain_column_froms=True)
+
     if options.orderby:
         if not root_cls:
             raise NoRootClassError(str(query), '$orderby')
@@ -278,9 +289,7 @@ def apply_to_sqlalchemy_query(  # noqa: C901, PLR0912
         for field in options.expand:
             query = query.options(joinedload(getattr(root_cls, field)))
 
-    if options.count:
-        query = query.with_only_columns(func.count('*'), maintain_column_froms=True)
-    elif options.select:
+    if options.select:
         if not root_cls:
             raise NoRootClassError(str(query), '$select')
 
