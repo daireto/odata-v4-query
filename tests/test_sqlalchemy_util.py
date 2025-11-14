@@ -21,7 +21,7 @@ from odata_v4_query.utils.sqlalchemy import (
     get_query_root_cls,
 )
 
-from ._core.sqlalchemy import User, get_engine, seed_data
+from ._core.sqlalchemy import Post, User, get_engine, seed_data
 
 
 @pytest.fixture(scope='session')
@@ -243,6 +243,76 @@ class TestSQLAlchemy:
         assert len(result) == 10
         assert result[0][0] == 'John'
         assert result[0][1] == 'john@example.com'
+
+    def test_filter_nested_field_eq(self, session: Session):
+        options = self.parser.parse_query_string("$filter=user/name eq 'John'")
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 1'
+        assert result[1].title == 'Post 2'
+
+    def test_filter_nested_field_comparison(self, session: Session):
+        options = self.parser.parse_query_string(
+            '$filter=user/age gt 25 and rating ge 3'
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 1
+        assert result[0].title == 'Post 3'
+        assert result[0].user.name == 'Jane'
+
+    def test_filter_nested_field_startswith(self, session: Session):
+        options = self.parser.parse_query_string("$filter=startswith(user/name, 'J')")
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 4
+        titles = [r.title for r in result]
+        assert 'Post 1' in titles
+        assert 'Post 2' in titles
+        assert 'Post 3' in titles
+        assert 'Post 4' in titles
+
+    def test_filter_nested_field_contains(self, session: Session):
+        options = self.parser.parse_query_string("$filter=contains(user/email, 'jane')")
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 3'
+        assert result[1].title == 'Post 4'
+
+    def test_filter_nested_field_endswith(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=endswith(user/email, 'example.com')"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 4
+
+    def test_filter_nested_field_tolower(self, session: Session):
+        options = self.parser.parse_query_string("$filter=tolower(user/name) eq 'john'")
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 1'
+        assert result[1].title == 'Post 2'
+
+    def test_filter_nested_field_toupper(self, session: Session):
+        options = self.parser.parse_query_string("$filter=toupper(user/name) eq 'JANE'")
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 3'
+        assert result[1].title == 'Post 4'
+
+    def test_filter_nested_field_and_operator(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=user/name eq 'Jane' and rating eq 3"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 1
+        assert result[0].title == 'Post 3'
 
     def test_unexpected_null_filters(self):
         options = ODataQueryOptions(filter_=FilterNode(type_='value'))
