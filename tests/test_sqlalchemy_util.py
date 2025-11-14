@@ -314,6 +314,50 @@ class TestSQLAlchemy:
         assert len(result) == 1
         assert result[0].title == 'Post 3'
 
+    def test_filter_multi_level_nested_field_eq(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=user/profile/address/city eq 'Chicago'"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 3'
+        assert result[1].title == 'Post 4'
+
+    def test_filter_multi_level_nested_field_comparison(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=user/profile/address/country eq 'USA'"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 4
+
+    def test_filter_multi_level_nested_field_startswith(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=startswith(user/profile/address/city, 'Chi')"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+
+    def test_filter_multi_level_nested_field_tolower(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=tolower(user/profile/address/city) eq 'chicago'"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+
+    def test_filter_multi_level_nested_field_and_operator(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=user/profile/address/country eq 'USA' and rating ge 4"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 1'
+        assert result[1].title == 'Post 2'
+
     def test_unexpected_null_filters(self):
         options = ODataQueryOptions(filter_=FilterNode(type_='value'))
         with pytest.raises(UnexpectedNullFiltersError):
