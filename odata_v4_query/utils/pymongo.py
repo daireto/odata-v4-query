@@ -89,21 +89,6 @@ def get_query_from_options(
 ) -> PyMongoQuery:
     """Get a PyMongo query from OData query options.
 
-    If the ``$page`` option is used, it is converted to ``$skip``
-    and ``$top``. If ``$top`` is not provided, it defaults to 100.
-    The ``$skip`` is computed as ``(page - 1) * top``. If ``$skip``
-    is provided, it is overwritten.
-
-    The ``$search`` option is only supported if ``search_fields``
-    is provided. It overrides the ``$filter`` option.
-
-    The ``$select`` option is only supported if ``parse_select``
-    is True.
-
-    .. note::
-        The ``$count``, ``$expand`` and ``$format`` options
-        won't be applied. You need to handle them manually.
-
     Parameters
     ----------
     options : ODataQueryOptions
@@ -118,6 +103,32 @@ def get_query_from_options(
     -------
     PyMongoQuery
         PyMongo query.
+
+    Notes
+    -----
+    #### Pagination
+    If ``$page`` option is provided, ``$skip`` is overwritten
+    using ``odata_v4_query.utils.compute_skip_from_page()``.
+    If ``$top`` is not provided, it defaults to
+    ``odata_v4_query.definitions.DEFAULT_LIMIT``.
+
+    #### Search
+    The ``$search`` option is only supported if ``search_fields``
+    is provided.
+
+    #### Select and projection
+    The ``$select`` option is only supported if ``parse_select``
+    is True.
+
+    #### Unsupported options
+    The ``$count``, ``$expand`` and ``$format`` options are
+    not supported.
+
+    #### Unsupported functions
+    The following functions are not supported:
+    - ``substring``
+    - ``tolower``
+    - ``toupper``
 
     Examples
     --------
@@ -168,9 +179,13 @@ def get_query_from_options(
         query.filter = filters
 
     if options.search and search_fields:
-        query.filter = {
+        search_filter = {
             '$or': [{field: {'$regex': options.search}} for field in search_fields],
         }
+        if query.filter:
+            query.filter = {'$and': [query.filter, search_filter]}
+        else:
+            query.filter = search_filter
 
     if options.orderby:
         sort_args = []

@@ -2,12 +2,14 @@ import pytest
 import pytest_asyncio
 
 from odata_v4_query.errors import (
-    TwoArgumentsExpectedError,
+    AggregationOperatorNotSupportedError,
     UnexpectedEmptyArgumentsError,
     UnexpectedNullFiltersError,
     UnexpectedNullFunctionNameError,
     UnexpectedNullOperandError,
     UnexpectedNullOperatorError,
+    UnexpectedNumberOfArgumentsError,
+    UnexpectedTypeError,
     UnknownFunctionError,
     UnknownOperatorError,
 )
@@ -16,6 +18,25 @@ from odata_v4_query.query_parser import ODataQueryOptions, ODataQueryParser
 from odata_v4_query.utils.beanie import apply_to_beanie_query
 
 from ._core.beanie import User, UserProjection, get_client, seed_data
+
+"""
+Monkey patching AggregationQuery to add a modified get_cursor
+that does not await the ``aggregate`` call. This is a workaround
+for the ``TypeError: object AsyncIOMotorLatentCommandCursor can't be used in 'await' expression``
+error raised with beanie>1.23.0 and mongomock-motor>0.0.35.
+"""
+try:
+    from beanie.odm.queries.aggregation import AggregationQuery
+
+    async def get_cursor(self):
+        aggregation_pipeline = self.get_aggregation_pipeline()
+        return self.document_model.get_pymongo_collection().aggregate(
+            aggregation_pipeline, session=self.session, **self.pymongo_kwargs
+        )
+
+    AggregationQuery.get_cursor = get_cursor
+except ImportError as e:
+    pass
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -75,8 +96,7 @@ class TestBeanie:
         assert len(result) == 0
 
     @pytest.mark.asyncio
-    async def test_filter(self):
-        # comparison and logical
+    async def test_filter_comparison_and_logical(self):
         options = self.parser.parse_query_string("$filter=name eq 'John' and age ge 25")
         query = apply_to_beanie_query(options, User)
         result = await query.to_list()
@@ -124,7 +144,8 @@ class TestBeanie:
         result = await query.to_list()
         assert len(result) == 10
 
-        # string functions
+    @pytest.mark.asyncio
+    async def test_filter_startswith_function(self):
         options = self.parser.parse_query_string(
             "$filter=startswith(name, 'J') and age ge 25"
         )
@@ -134,6 +155,8 @@ class TestBeanie:
         assert result[0].name == 'John'
         assert result[1].name == 'Jane'
 
+    @pytest.mark.asyncio
+    async def test_filter_endswith_function(self):
         options = self.parser.parse_query_string("$filter=endswith(name, 'e')")
         query = apply_to_beanie_query(options, User)
         result = await query.to_list()
@@ -144,6 +167,8 @@ class TestBeanie:
         assert result[3].name == 'Eve'
         assert result[4].name == 'Grace'
 
+    @pytest.mark.asyncio
+    async def test_filter_contains_function(self):
         options = self.parser.parse_query_string(
             "$filter=contains(name, 'i') and age le 35"
         )
@@ -155,7 +180,28 @@ class TestBeanie:
         assert result[1].name == 'Charlie'
         assert result[1].age == 32
 
-        # collection
+    @pytest.mark.asyncio
+    async def test_filter_substring_function(self):
+        options = self.parser.parse_query_string(
+            "$filter=substring(name, 1, 3) eq 'ohn'"
+        )
+        with pytest.raises(AggregationOperatorNotSupportedError):
+            apply_to_beanie_query(options, User)
+
+    @pytest.mark.asyncio
+    async def test_filter_tolower_function(self):
+        options = self.parser.parse_query_string("$filter=tolower(name) eq 'john'")
+        with pytest.raises(AggregationOperatorNotSupportedError):
+            apply_to_beanie_query(options, User)
+
+    @pytest.mark.asyncio
+    async def test_filter_toupper_function(self):
+        options = self.parser.parse_query_string("$filter=toupper(name) eq 'ALICE'")
+        with pytest.raises(AggregationOperatorNotSupportedError):
+            apply_to_beanie_query(options, User)
+
+    @pytest.mark.asyncio
+    async def test_filter_has_operator(self):
         options = self.parser.parse_query_string("$filter=addresses has '101 Main St'")
         query = apply_to_beanie_query(options, User)
         result = await query.to_list()
@@ -170,6 +216,13 @@ class TestBeanie:
         result = await query.to_list()
         assert len(result) == 1
         assert result[0].name == 'John'
+
+    @pytest.mark.asyncio
+    async def test_count(self):
+        options = self.parser.parse_query_string('$count=true')
+        result = apply_to_beanie_query(options, User, count=True)
+        count = await result
+        assert count == 10
 
     @pytest.mark.asyncio
     async def test_orderby(self):
@@ -198,6 +251,68 @@ class TestBeanie:
         assert len(result) == 10
         assert result[0]['name'] == 'John'
         assert result[0]['email'] == 'john@example.com'
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_eq(self):
+        options = self.parser.parse_query_string("$filter=profile/city eq 'Chicago'")
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 1
+        assert result[0].name == 'Alice'
+        assert result[0].profile.city == 'Chicago'
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_comparison(self):
+        options = self.parser.parse_query_string(
+            "$filter=profile/city eq 'New York' and age gt 20"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 1
+        assert result[0].name == 'John'
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_startswith(self):
+        options = self.parser.parse_query_string(
+            "$filter=startswith(profile/city, 'San')"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 3
+        names = [r.name for r in result]
+        assert 'David' in names  # San Antonio
+        assert 'Eve' in names  # San Diego
+        assert 'Grace' in names  # San Jose
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_contains(self):
+        options = self.parser.parse_query_string(
+            "$filter=contains(profile/city, 'Angeles')"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 1
+        assert result[0].name == 'Jane'
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_in_operator(self):
+        options = self.parser.parse_query_string(
+            "$filter=profile/city in ('Chicago', 'Houston', 'Dallas')"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 3
+        names = [r.name for r in result]
+        assert 'Alice' in names  # Chicago
+        assert 'Bob' in names  # Houston
+        assert 'Frank' in names  # Dallas
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_has_operator(self):
+        options = self.parser.parse_query_string("$filter=profile/country has 'USA'")
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 10
 
     @pytest.mark.asyncio
     async def test_projection(self):
@@ -315,8 +430,8 @@ class TestBeanie:
         with pytest.raises(UnexpectedEmptyArgumentsError):
             apply_to_beanie_query(options, User)
 
-    def test_two_arguments_expected(self):
-        options = ODataQueryOptions(
+    def test_unexpected_number_of_arguments(self):
+        options1 = ODataQueryOptions(
             filter_=FilterNode(
                 type_='function',
                 value='startswith',
@@ -327,8 +442,20 @@ class TestBeanie:
                 ],
             )
         )
-        with pytest.raises(TwoArgumentsExpectedError):
-            apply_to_beanie_query(options, User)
+        options2 = ODataQueryOptions(
+            filter_=FilterNode(
+                type_='function',
+                value='substring',
+                arguments=[
+                    FilterNode(type_='identifier', value='name'),
+                    FilterNode(type_='literal', value=1),
+                ],
+            )
+        )
+        with pytest.raises(UnexpectedNumberOfArgumentsError):
+            apply_to_beanie_query(options1, User)
+        with pytest.raises(UnexpectedNumberOfArgumentsError):
+            apply_to_beanie_query(options2, User)
 
     def test_unexpected_null_operand_for_function(self):
         options = ODataQueryOptions(
@@ -356,4 +483,33 @@ class TestBeanie:
             )
         )
         with pytest.raises(UnknownFunctionError):
+            apply_to_beanie_query(options, User)
+
+    def test_function_with_null_field(self):
+        options = ODataQueryOptions(
+            filter_=FilterNode(
+                type_='function',
+                value='startswith',
+                arguments=[
+                    FilterNode(type_='identifier'),
+                    FilterNode(type_='literal', value='J'),
+                ],
+            )
+        )
+        with pytest.raises(UnexpectedNullOperandError):
+            apply_to_beanie_query(options, User)
+
+    def test_function_with_invalid_type(self):
+        options = ODataQueryOptions(
+            filter_=FilterNode(
+                type_='function',
+                value='substring',
+                arguments=[
+                    FilterNode(type_='identifier', value='name'),
+                    FilterNode(type_='literal', value='invalid'),
+                    FilterNode(type_='literal', value=2),
+                ],
+            )
+        )
+        with pytest.raises(UnexpectedTypeError):
             apply_to_beanie_query(options, User)

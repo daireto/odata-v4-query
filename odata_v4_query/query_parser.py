@@ -1,3 +1,4 @@
+import copy
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -37,6 +38,36 @@ class ODataQueryOptions:
     skip: int | None = None
     top: int | None = None
     page: int | None = None
+
+    def clone(self, deep: bool = False) -> 'ODataQueryOptions':
+        """Clone the query options.
+
+        Parameters
+        ----------
+        deep : bool, optional
+            Whether to perform a deep copy using ``copy.deepcopy()``,
+            by default nested objects (expand, filter_, orderby, select)
+            are copied shallowly. **Use with caution:** Deep copying large
+            lists and ASTs can be very expensive, and lead to high overhead.
+
+        Returns
+        -------
+        ODataQueryOptions
+            Cloned query options.
+
+        """
+        return ODataQueryOptions(
+            count=self.count,
+            expand=copy.deepcopy(self.expand) if deep else self.expand,
+            filter_=copy.deepcopy(self.filter_) if deep else self.filter_,
+            format_=self.format_,
+            orderby=copy.deepcopy(self.orderby) if deep else self.orderby,
+            search=self.search,
+            select=copy.deepcopy(self.select) if deep else self.select,
+            skip=self.skip,
+            top=self.top,
+            page=self.page,
+        )
 
 
 class ODataQueryParser:

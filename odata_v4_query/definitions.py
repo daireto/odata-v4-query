@@ -29,6 +29,9 @@ HAS = 'has'
 STARTSWITH = 'startswith'
 ENDSWITH = 'endswith'
 CONTAINS = 'contains'
+SUBSTRING = 'substring'
+TOLOWER = 'tolower'
+TOUPPER = 'toupper'
 
 COMPARISON_OPERATORS = (EQ, NE, GT, GE, LT, LE, IN, NIN)
 
@@ -38,6 +41,9 @@ FUNCTION_ARITY = {
     STARTSWITH: 2,
     ENDSWITH: 2,
     CONTAINS: 2,
+    SUBSTRING: 3,
+    TOLOWER: 1,
+    TOUPPER: 1,
 }
 
 OPERATOR_ARITY = {

@@ -2,12 +2,14 @@ import pytest
 from mongomock import Database
 
 from odata_v4_query.errors import (
-    TwoArgumentsExpectedError,
+    AggregationOperatorNotSupportedError,
     UnexpectedEmptyArgumentsError,
     UnexpectedNullFiltersError,
     UnexpectedNullFunctionNameError,
     UnexpectedNullOperandError,
     UnexpectedNullOperatorError,
+    UnexpectedNumberOfArgumentsError,
+    UnexpectedTypeError,
     UnknownFunctionError,
     UnknownOperatorError,
 )
@@ -132,34 +134,55 @@ class TestBeanie:
         assert len(result1) == 0
         assert len(result2) == 10
 
-    def test_filter_string_functions(self, db: Database):
-        options1 = self.parser.parse_query_string(
+    def test_filter_startswith_function(self, db: Database):
+        options = self.parser.parse_query_string(
             "$filter=startswith(name, 'J') and age ge 25"
         )
-        query1 = get_query_from_options(options1)
-        result1 = list(db.users.find(**query1))
-        options2 = self.parser.parse_query_string("$filter=endswith(name, 'e')")
-        query2 = get_query_from_options(options2)
-        result2 = list(db.users.find(**query2))
-        options3 = self.parser.parse_query_string(
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 2
+        assert result[0]['name'] == 'John'
+        assert result[1]['name'] == 'Jane'
+
+    def test_filter_endswith_function(self, db: Database):
+        options = self.parser.parse_query_string("$filter=endswith(name, 'e')")
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 5
+        assert result[0]['name'] == 'Jane'
+        assert result[1]['name'] == 'Alice'
+        assert result[2]['name'] == 'Charlie'
+        assert result[3]['name'] == 'Eve'
+        assert result[4]['name'] == 'Grace'
+
+    def test_filter_contains_function(self, db: Database):
+        options = self.parser.parse_query_string(
             "$filter=contains(name, 'i') and age le 35"
         )
-        query3 = get_query_from_options(options3)
-        result3 = list(db.users.find(**query3))
-        assert len(result1) == 2
-        assert result1[0]['name'] == 'John'
-        assert result1[1]['name'] == 'Jane'
-        assert len(result2) == 5
-        assert result2[0]['name'] == 'Jane'
-        assert result2[1]['name'] == 'Alice'
-        assert result2[2]['name'] == 'Charlie'
-        assert result2[3]['name'] == 'Eve'
-        assert result2[4]['name'] == 'Grace'
-        assert len(result3) == 2
-        assert result3[0]['name'] == 'Alice'
-        assert result3[0]['age'] == 35
-        assert result3[1]['name'] == 'Charlie'
-        assert result3[1]['age'] == 32
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 2
+        assert result[0]['name'] == 'Alice'
+        assert result[0]['age'] == 35
+        assert result[1]['name'] == 'Charlie'
+        assert result[1]['age'] == 32
+
+    def test_filter_substring_function(self, db: Database):
+        options = self.parser.parse_query_string(
+            "$filter=substring(name, 1, 3) eq 'ohn'"
+        )
+        with pytest.raises(AggregationOperatorNotSupportedError):
+            get_query_from_options(options)
+
+    def test_filter_tolower_function(self, db: Database):
+        options = self.parser.parse_query_string("$filter=tolower(name) eq 'john'")
+        with pytest.raises(AggregationOperatorNotSupportedError):
+            get_query_from_options(options)
+
+    def test_filter_toupper_function(self, db: Database):
+        options = self.parser.parse_query_string("$filter=toupper(name) eq 'ALICE'")
+        with pytest.raises(AggregationOperatorNotSupportedError):
+            get_query_from_options(options)
 
     def test_filter_has(self, db: Database):
         options = self.parser.parse_query_string("$filter=addresses has '101 Main St'")
@@ -175,6 +198,17 @@ class TestBeanie:
         result = list(db.users.find(**query))
         assert len(result) == 1
         assert result[0]['name'] == 'John'
+
+    def test_filter_and_search_merge(self, db: Database):
+        options = self.parser.parse_query_string('$filter=age gt 30&$search=a')
+        query = get_query_from_options(options, search_fields=['name'])
+        result = list(db.users.find(**query))
+        # Should find users with age > 30 AND name containing 'a' (case-sensitive)
+        assert len(result) == 3
+        names = [r['name'] for r in result]
+        assert 'Charlie' in names  # age 32, name contains 'a'
+        assert 'David' in names  # age 41, name contains 'a'
+        assert 'Grace' in names  # age 37, name contains 'a'
 
     def test_orderby(self, db: Database):
         options = self.parser.parse_query_string('$orderby=name asc,age desc')
@@ -201,6 +235,62 @@ class TestBeanie:
         assert len(result) == 10
         assert result[0]['name'] == 'John'
         assert result[0]['email'] == 'john@example.com'
+
+    def test_filter_nested_field_eq(self, db: Database):
+        options = self.parser.parse_query_string("$filter=profile/city eq 'Chicago'")
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 1
+        assert result[0]['name'] == 'Alice'
+        assert result[0]['profile']['city'] == 'Chicago'
+
+    def test_filter_nested_field_comparison(self, db: Database):
+        options = self.parser.parse_query_string(
+            "$filter=profile/city eq 'New York' and age gt 20"
+        )
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 1
+        assert result[0]['name'] == 'John'
+
+    def test_filter_nested_field_startswith(self, db: Database):
+        options = self.parser.parse_query_string(
+            "$filter=startswith(profile/city, 'San')"
+        )
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 3
+        names = [r['name'] for r in result]
+        assert 'David' in names  # San Antonio
+        assert 'Eve' in names  # San Diego
+        assert 'Grace' in names  # San Jose
+
+    def test_filter_nested_field_contains(self, db: Database):
+        options = self.parser.parse_query_string(
+            "$filter=contains(profile/city, 'Angeles')"
+        )
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 1
+        assert result[0]['name'] == 'Jane'
+
+    def test_filter_nested_field_in_operator(self, db: Database):
+        options = self.parser.parse_query_string(
+            "$filter=profile/city in ('Chicago', 'Houston', 'Dallas')"
+        )
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 3
+        names = [r['name'] for r in result]
+        assert 'Alice' in names  # Chicago
+        assert 'Bob' in names  # Houston
+        assert 'Frank' in names  # Dallas
+
+    def test_filter_nested_field_has_operator(self, db: Database):
+        options = self.parser.parse_query_string("$filter=profile/country has 'USA'")
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 10
 
     def test_unexpected_null_filters(self):
         options = ODataQueryOptions(filter_=FilterNode(type_='value'))
@@ -298,8 +388,8 @@ class TestBeanie:
         with pytest.raises(UnexpectedEmptyArgumentsError):
             get_query_from_options(options)
 
-    def test_two_arguments_expected(self):
-        options = ODataQueryOptions(
+    def test_unexpected_number_of_arguments(self):
+        options1 = ODataQueryOptions(
             filter_=FilterNode(
                 type_='function',
                 value='startswith',
@@ -310,8 +400,20 @@ class TestBeanie:
                 ],
             )
         )
-        with pytest.raises(TwoArgumentsExpectedError):
-            get_query_from_options(options)
+        options2 = ODataQueryOptions(
+            filter_=FilterNode(
+                type_='function',
+                value='substring',
+                arguments=[
+                    FilterNode(type_='identifier', value='name'),
+                    FilterNode(type_='literal', value=1),
+                ],
+            )
+        )
+        with pytest.raises(UnexpectedNumberOfArgumentsError):
+            get_query_from_options(options1)
+        with pytest.raises(UnexpectedNumberOfArgumentsError):
+            get_query_from_options(options2)
 
     def test_unexpected_null_operand_for_function(self):
         options = ODataQueryOptions(
@@ -339,4 +441,33 @@ class TestBeanie:
             )
         )
         with pytest.raises(UnknownFunctionError):
+            get_query_from_options(options)
+
+    def test_function_with_null_field(self):
+        options = ODataQueryOptions(
+            filter_=FilterNode(
+                type_='function',
+                value='startswith',
+                arguments=[
+                    FilterNode(type_='identifier'),
+                    FilterNode(type_='literal', value='J'),
+                ],
+            )
+        )
+        with pytest.raises(UnexpectedNullOperandError):
+            get_query_from_options(options)
+
+    def test_function_with_invalid_type(self):
+        options = ODataQueryOptions(
+            filter_=FilterNode(
+                type_='function',
+                value='substring',
+                arguments=[
+                    FilterNode(type_='identifier', value='name'),
+                    FilterNode(type_='literal', value='invalid'),
+                    FilterNode(type_='literal', value=2),
+                ],
+            )
+        )
+        with pytest.raises(UnexpectedTypeError):
             get_query_from_options(options)

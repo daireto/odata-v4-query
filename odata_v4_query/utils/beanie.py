@@ -16,6 +16,7 @@ except ImportError as e:  # pragma: no cover
     )
     raise ImportError(missing_dep_msg) from e  # pragma: no cover
 
+from collections.abc import Coroutine
 from typing import Any, Literal, TypeVar, overload
 
 from pydantic import BaseModel
@@ -29,8 +30,10 @@ FindQueryProjectionType = TypeVar('FindQueryProjectionType', bound=BaseModel)
 FindType = TypeVar('FindType', bound=Document)
 ParsedQuery = (
     FindMany[FindType]
+    | FindMany[FindQueryProjectionType]
     | AggregationQuery[dict[str, Any]]
     | AggregationQuery[FindQueryProjectionType]
+    | Coroutine[Any, Any, int]
 )
 
 
@@ -42,6 +45,7 @@ def apply_to_beanie_query(
     parse_select: Literal[False] = False,
     search_fields: list[str] | None = None,
     fetch_links: bool = False,
+    count: Literal[False] = False,
 ) -> FindMany[FindType]: ...
 
 
@@ -53,6 +57,7 @@ def apply_to_beanie_query(
     parse_select: Literal[False] = False,
     search_fields: list[str] | None = None,
     fetch_links: bool = False,
+    count: Literal[False] = False,
 ) -> FindMany[FindQueryProjectionType]: ...
 
 
@@ -64,6 +69,7 @@ def apply_to_beanie_query(
     parse_select: Literal[True] = True,
     search_fields: list[str] | None = None,
     fetch_links: bool = False,
+    count: Literal[False] = False,
 ) -> AggregationQuery[dict[str, Any]]: ...
 
 
@@ -75,7 +81,20 @@ def apply_to_beanie_query(
     parse_select: Literal[True] = True,
     search_fields: list[str] | None = None,
     fetch_links: bool = False,
+    count: Literal[False] = False,
 ) -> AggregationQuery[FindQueryProjectionType]: ...
+
+
+@overload
+def apply_to_beanie_query(
+    options: ODataQueryOptions,
+    document_or_query: type[FindType] | FindMany[FindType],
+    projection_model: type[FindQueryProjectionType] | None = None,
+    parse_select: bool = False,
+    search_fields: list[str] | None = None,
+    fetch_links: bool = False,
+    count: Literal[True] = True,
+) -> Coroutine[Any, Any, int]: ...
 
 
 def apply_to_beanie_query(
@@ -85,24 +104,9 @@ def apply_to_beanie_query(
     parse_select: bool = False,
     search_fields: list[str] | None = None,
     fetch_links: bool = False,
+    count: bool = False,
 ) -> ParsedQuery:
     """Apply OData query options to a Beanie query.
-
-    If the ``$page`` option is used, it is converted to ``$skip``
-    and ``$top``. If ``$top`` is not provided, it defaults to 100.
-    The ``$skip`` is computed as ``(page - 1) * top``. If ``$skip``
-    is provided, it is overwritten.
-
-    The ``$search`` option is only supported if ``search_fields``
-    is provided.
-
-    The ``$select`` option is only supported if ``parse_select``
-    is True. If ``projection_model`` is provided, the results
-    are projected with a Pydantic model, otherwise a dictionary.
-
-    .. note::
-        The ``$count``, ``$expand`` and ``$format`` options
-        won't be applied. You need to handle them manually.
 
     Parameters
     ----------
@@ -121,11 +125,45 @@ def apply_to_beanie_query(
         Fields to search in if ``$search`` is used, by default None.
     fetch_links : bool, optional
         Whether to fetch links, by default False.
+    count : bool, optional
+        Whether to return a coroutine that returns the count of the
+        query, by default False.
 
     Returns
     -------
     ParsedQuery
         Beanie query with applied options.
+
+    Notes
+    -----
+    #### Pagination
+    If ``$page`` option is provided, ``$skip`` is overwritten
+    using ``odata_v4_query.utils.compute_skip_from_page()``.
+    If ``$top`` is not provided, it defaults to
+    ``odata_v4_query.definitions.DEFAULT_LIMIT``.
+
+    #### Search
+    The ``$search`` option is only supported if ``search_fields``
+    is provided.
+
+    #### Select and projection
+    The ``$select`` option is only supported if ``parse_select``
+    is True. If ``projection_model`` is provided, the results
+    are projected with a Pydantic model, otherwise a dictionary.
+
+    #### Count
+    If ``$count`` is provided, the query is returned with a
+    coroutine that returns the count of the query. Also, ``$orderby``
+    and ``$select`` are ignored.
+
+    #### Unsupported options
+    The ``$expand`` and ``$format`` options are not supported.
+
+    #### Unsupported functions
+    The following functions are not supported:
+    - ``substring``
+    - ``tolower``
+    - ``toupper``
 
     Examples
     --------
@@ -179,6 +217,13 @@ def apply_to_beanie_query(
     ...     fetch_links=True
     ... )
 
+    Get count:
+    >>> count = await apply_to_beanie_query(
+    ...     options,
+    ...     User.find(),
+    ...     count=True
+    ... )()
+
     """
     compute_skip_from_page(options)
 
@@ -206,6 +251,9 @@ def apply_to_beanie_query(
             fetch_links=fetch_links,
         )
 
+    if options.count and count:
+        return query.count()
+
     if options.orderby:
         sort_args = []
         for item in options.orderby:
@@ -214,11 +262,9 @@ def apply_to_beanie_query(
         query = query.sort(*sort_args)
 
     if options.select and parse_select:
-        query = query.aggregate(
+        return query.aggregate(
             [{'$project': dict.fromkeys(options.select, 1)}],
             projection_model=projection_model,
         )
-    else:
-        query = query.project(projection_model)
 
-    return query
+    return query.project(projection_model)

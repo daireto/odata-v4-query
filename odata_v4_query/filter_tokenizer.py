@@ -101,8 +101,8 @@ class ODataFilterTokenizer:
                 self.__position += 1
                 continue
 
-            # handle numbers
-            if char.isdigit():
+            # handle numbers (including negative numbers)
+            if char.isdigit() or (char == '-' and self.__position + 1 < expr_len and expr[self.__position + 1].isdigit()):
                 value, pos = self._extract_number(expr)
                 self.__tokens.append(Token(TokenType.LITERAL, value, pos))
                 continue
@@ -220,6 +220,10 @@ class ODataFilterTokenizer:
         expr_len = len(expr)
         end_pos = start_pos
         has_decimal = False
+
+        # Handle negative sign
+        if end_pos < expr_len and expr[end_pos] == '-':
+            end_pos += 1
 
         while end_pos < expr_len:
             char = expr[end_pos]

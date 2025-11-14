@@ -5,7 +5,7 @@ from sqlalchemy.sql import select
 
 from odata_v4_query.errors import (
     NoRootClassError,
-    TwoArgumentsExpectedError,
+    UnexpectedNumberOfArgumentsError,
     UnexpectedEmptyArgumentsError,
     UnexpectedNullFiltersError,
     UnexpectedNullFunctionNameError,
@@ -21,7 +21,7 @@ from odata_v4_query.utils.sqlalchemy import (
     get_query_root_cls,
 )
 
-from ._core.sqlalchemy import User, get_engine, seed_data
+from ._core.sqlalchemy import Post, User, get_engine, seed_data
 
 
 @pytest.fixture(scope='session')
@@ -76,7 +76,7 @@ class TestSQLAlchemy:
         assert len(result4) == 2
         assert len(result5) == 0
 
-    def test_filter_comparison(self, session: Session):
+    def test_filter_comparison_and_logical(self, session: Session):
         options1 = self.parser.parse_query_string(
             "$filter=name eq 'John' and age ge 25"
         )
@@ -91,6 +91,16 @@ class TestSQLAlchemy:
         options4 = self.parser.parse_query_string("$filter=name nin ('Eve', 'Frank')")
         query4 = apply_to_sqlalchemy_query(options4, User)
         result4 = session.scalars(query4).all()
+        options5 = self.parser.parse_query_string(
+            "$filter=name ne 'John' and name ne 'Jane'"
+        )
+        query5 = apply_to_sqlalchemy_query(options5, User)
+        result5 = session.scalars(query5).all()
+        options6 = self.parser.parse_query_string(
+            "$filter=not name eq 'John' and not name eq 'Jane'"
+        )
+        query6 = apply_to_sqlalchemy_query(options6, User)
+        result6 = session.scalars(query6).all()
         assert len(result1) == 1
         assert result1[0].name == 'John'
         assert len(result2) == 4
@@ -98,20 +108,8 @@ class TestSQLAlchemy:
         assert result3[0].name == 'Eve'
         assert result3[1].name == 'Frank'
         assert len(result4) == 8
-
-    def test_filter_logical(self, session: Session):
-        options1 = self.parser.parse_query_string(
-            "$filter=name ne 'John' and name ne 'Jane'"
-        )
-        query1 = apply_to_sqlalchemy_query(options1, User)
-        result1 = session.scalars(query1).all()
-        options2 = self.parser.parse_query_string(
-            "$filter=not name eq 'John' and not name eq 'Jane'"
-        )
-        query2 = apply_to_sqlalchemy_query(options2, User)
-        result2 = session.scalars(query2).all()
-        assert len(result1) == 8
-        assert len(result2) == 8
+        assert len(result5) == 8
+        assert len(result6) == 8
 
     def test_filter_null(self, session: Session):
         options1 = self.parser.parse_query_string('$filter=name eq null')
@@ -123,36 +121,69 @@ class TestSQLAlchemy:
         assert len(result1) == 0
         assert len(result2) == 10
 
-    def test_filter_string_functions(self, session: Session):
-        options1 = self.parser.parse_query_string(
+    def test_filter_startswith_function(self, session: Session):
+        options = self.parser.parse_query_string(
             "$filter=startswith(name, 'J') and age ge 25"
         )
-        query1 = apply_to_sqlalchemy_query(options1, User)
-        result1 = session.scalars(query1).all()
-        assert len(result1) == 2
-        assert result1[0].name == 'John'
-        assert result1[1].name == 'Jane'
+        query = apply_to_sqlalchemy_query(options, User)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].name == 'John'
+        assert result[1].name == 'Jane'
 
-        options2 = self.parser.parse_query_string("$filter=endswith(name, 'e')")
-        query2 = apply_to_sqlalchemy_query(options2, User)
-        result2 = session.scalars(query2).all()
-        assert len(result2) == 5
-        assert result2[0].name == 'Jane'
-        assert result2[1].name == 'Alice'
-        assert result2[2].name == 'Charlie'
-        assert result2[3].name == 'Eve'
-        assert result2[4].name == 'Grace'
+    def test_filter_endswith_function(self, session: Session):
+        options = self.parser.parse_query_string("$filter=endswith(name, 'e')")
+        query = apply_to_sqlalchemy_query(options, User)
+        result = session.scalars(query).all()
+        assert len(result) == 5
+        assert result[0].name == 'Jane'
+        assert result[1].name == 'Alice'
+        assert result[2].name == 'Charlie'
+        assert result[3].name == 'Eve'
+        assert result[4].name == 'Grace'
 
-        options3 = self.parser.parse_query_string(
+    def test_filter_contains_function(self, session: Session):
+        options = self.parser.parse_query_string(
             "$filter=contains(name, 'i') and age le 35"
         )
-        query3 = apply_to_sqlalchemy_query(options3, User)
-        result3 = session.scalars(query3).all()
-        assert len(result3) == 2
-        assert result3[0].name == 'Alice'
-        assert result3[0].age == 35
-        assert result3[1].name == 'Charlie'
-        assert result3[1].age == 32
+        query = apply_to_sqlalchemy_query(options, User)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].name == 'Alice'
+        assert result[0].age == 35
+        assert result[1].name == 'Charlie'
+        assert result[1].age == 32
+
+    def test_filter_substring_function(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=substring(name, 1, 2) eq 'oh'"
+        )
+        query = apply_to_sqlalchemy_query(options, User)
+        result = session.scalars(query).all()
+        assert len(result) == 1
+        assert result[0].name == 'John'
+
+        options = self.parser.parse_query_string(
+            "$filter=substring(name, 1, -1) eq 'lice'"
+        )
+        query = apply_to_sqlalchemy_query(options, User)
+        result = session.scalars(query).all()
+        assert len(result) == 1
+        assert result[0].name == 'Alice'
+
+    def test_filter_tolower_function(self, session: Session):
+        options = self.parser.parse_query_string("$filter=tolower(name) eq 'john'")
+        query = apply_to_sqlalchemy_query(options, User)
+        result = session.scalars(query).all()
+        assert len(result) == 1
+        assert result[0].name == 'John'
+
+    def test_filter_toupper_function(self, session: Session):
+        options = self.parser.parse_query_string("$filter=toupper(name) eq 'ALICE'")
+        query = apply_to_sqlalchemy_query(options, User)
+        result = session.scalars(query).all()
+        assert len(result) == 1
+        assert result[0].name == 'Alice'
 
     def test_filter_has(self, session: Session):
         options = self.parser.parse_query_string("$filter=addresses has '101 Main St'")
@@ -198,6 +229,13 @@ class TestSQLAlchemy:
         assert result[1].posts[0].title == 'Post 3'
         assert result[1].posts[1].title == 'Post 4'
 
+    def test_count(self, session: Session):
+        options = self.parser.parse_query_string('$count=true')
+        query = apply_to_sqlalchemy_query(options, User)
+        result = session.execute(query).all()
+        assert len(result) == 1
+        assert result[0][0] == 10
+
     def test_select(self, session: Session):
         options = self.parser.parse_query_string('$select=name,email')
         query = apply_to_sqlalchemy_query(options, User)
@@ -205,6 +243,120 @@ class TestSQLAlchemy:
         assert len(result) == 10
         assert result[0][0] == 'John'
         assert result[0][1] == 'john@example.com'
+
+    def test_filter_nested_field_eq(self, session: Session):
+        options = self.parser.parse_query_string("$filter=user/name eq 'John'")
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 1'
+        assert result[1].title == 'Post 2'
+
+    def test_filter_nested_field_comparison(self, session: Session):
+        options = self.parser.parse_query_string(
+            '$filter=user/age gt 25 and rating ge 3'
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 1
+        assert result[0].title == 'Post 3'
+        assert result[0].user.name == 'Jane'
+
+    def test_filter_nested_field_startswith(self, session: Session):
+        options = self.parser.parse_query_string("$filter=startswith(user/name, 'J')")
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 4
+        titles = [r.title for r in result]
+        assert 'Post 1' in titles
+        assert 'Post 2' in titles
+        assert 'Post 3' in titles
+        assert 'Post 4' in titles
+
+    def test_filter_nested_field_contains(self, session: Session):
+        options = self.parser.parse_query_string("$filter=contains(user/email, 'jane')")
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 3'
+        assert result[1].title == 'Post 4'
+
+    def test_filter_nested_field_endswith(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=endswith(user/email, 'example.com')"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 4
+
+    def test_filter_nested_field_tolower(self, session: Session):
+        options = self.parser.parse_query_string("$filter=tolower(user/name) eq 'john'")
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 1'
+        assert result[1].title == 'Post 2'
+
+    def test_filter_nested_field_toupper(self, session: Session):
+        options = self.parser.parse_query_string("$filter=toupper(user/name) eq 'JANE'")
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 3'
+        assert result[1].title == 'Post 4'
+
+    def test_filter_nested_field_and_operator(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=user/name eq 'Jane' and rating eq 3"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 1
+        assert result[0].title == 'Post 3'
+
+    def test_filter_multi_level_nested_field_eq(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=user/profile/address/city eq 'Chicago'"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 3'
+        assert result[1].title == 'Post 4'
+
+    def test_filter_multi_level_nested_field_comparison(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=user/profile/address/country eq 'USA'"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 4
+
+    def test_filter_multi_level_nested_field_startswith(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=startswith(user/profile/address/city, 'Chi')"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+
+    def test_filter_multi_level_nested_field_tolower(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=tolower(user/profile/address/city) eq 'chicago'"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+
+    def test_filter_multi_level_nested_field_and_operator(self, session: Session):
+        options = self.parser.parse_query_string(
+            "$filter=user/profile/address/country eq 'USA' and rating ge 4"
+        )
+        query = apply_to_sqlalchemy_query(options, Post)
+        result = session.scalars(query).all()
+        assert len(result) == 2
+        assert result[0].title == 'Post 1'
+        assert result[1].title == 'Post 2'
 
     def test_unexpected_null_filters(self):
         options = ODataQueryOptions(filter_=FilterNode(type_='value'))
@@ -302,8 +454,8 @@ class TestSQLAlchemy:
         with pytest.raises(UnexpectedEmptyArgumentsError):
             apply_to_sqlalchemy_query(options, User)
 
-    def test_two_arguments_expected(self):
-        options = ODataQueryOptions(
+    def test_unexpected_number_of_arguments(self):
+        options1 = ODataQueryOptions(
             filter_=FilterNode(
                 type_='function',
                 value='startswith',
@@ -314,8 +466,20 @@ class TestSQLAlchemy:
                 ],
             )
         )
-        with pytest.raises(TwoArgumentsExpectedError):
-            apply_to_sqlalchemy_query(options, User)
+        options2 = ODataQueryOptions(
+            filter_=FilterNode(
+                type_='function',
+                value='substring',
+                arguments=[
+                    FilterNode(type_='identifier', value='name'),
+                    FilterNode(type_='literal', value=1),
+                ],
+            )
+        )
+        with pytest.raises(UnexpectedNumberOfArgumentsError):
+            apply_to_sqlalchemy_query(options1, User)
+        with pytest.raises(UnexpectedNumberOfArgumentsError):
+            apply_to_sqlalchemy_query(options2, User)
 
     def test_unexpected_null_operand_for_function(self):
         options = ODataQueryOptions(

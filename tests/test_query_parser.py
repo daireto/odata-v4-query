@@ -7,6 +7,7 @@ from odata_v4_query.errors import (
     UnsupportedFormatError,
 )
 from odata_v4_query.query_parser import ODataQueryParser
+from odata_v4_query.utils._func import remove_pagination_options
 
 
 class TestODataQueryParser:
@@ -45,6 +46,24 @@ class TestODataQueryParser:
 
         options = self.parser.parse_query_string('$count=false')
         assert options.count is False
+
+    def test_shallow_clone_options(self):
+        options = self.parser.parse_query_string(
+            "$filter=name eq 'John'&$orderby=age desc"
+        )
+        cloned = options.clone(deep=False)
+        assert cloned.filter_ is options.filter_
+        assert cloned.orderby is options.orderby
+
+    def test_deep_clone_options(self):
+        options = self.parser.parse_query_string(
+            "$filter=name eq 'John'&$orderby=age desc"
+        )
+        cloned_deep = options.clone(deep=True)
+        assert cloned_deep.filter_ is not options.filter_
+        assert cloned_deep.orderby is not options.orderby
+        assert cloned_deep.filter_.value == options.filter_.value  # type: ignore
+        assert cloned_deep.orderby[0].field == options.orderby[0].field  # type: ignore
 
     def test_parse_expand(self):
         options = self.parser.parse_query_string('$expand=field1,field2')
@@ -127,3 +146,14 @@ class TestODataQueryParser:
     def test_invalid_page(self):
         with pytest.raises(NoPositiveError):
             self.parser.parse_query_string('$page=-10')
+
+    def test_remove_pagination_options(self):
+        options = self.parser.parse_query_string('$top=10&$skip=5&$page=2')
+        assert options.top == 10
+        assert options.skip == 5
+        assert options.page == 2
+
+        remove_pagination_options(options)
+        assert options.top is None
+        assert options.skip is None
+        assert options.page is None
