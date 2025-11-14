@@ -12,6 +12,24 @@ class Base(DeclarativeBase):
     pass
 
 
+class Address(Base):
+    __tablename__ = 'addresses'
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    city: Mapped[str] = mapped_column()
+    country: Mapped[str] = mapped_column()
+    profile_id: Mapped[int] = mapped_column(ForeignKey('profiles.id'))
+    profile: Mapped['Profile'] = relationship(back_populates='address')
+
+
+class Profile(Base):
+    __tablename__ = 'profiles'
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    bio: Mapped[str] = mapped_column()
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    user: Mapped['User'] = relationship(back_populates='profile')
+    address: Mapped['Address'] = relationship(back_populates='profile', uselist=False)
+
+
 class User(Base):
     __tablename__ = 'users'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -20,6 +38,7 @@ class User(Base):
     age: Mapped[int] = mapped_column()
     addresses: Mapped[list[str]] = mapped_column(JSON)
     posts: Mapped[list['Post']] = relationship(back_populates='user')
+    profile: Mapped['Profile'] = relationship(back_populates='user', uselist=False)
 
 
 class Post(Base):
@@ -106,6 +125,32 @@ def seed_users(session: Session):
     session.commit()
 
 
+def seed_profiles(session: Session):
+    session.add_all(
+        [
+            Profile(id=1, bio='Software Engineer', user_id=1),
+            Profile(id=2, bio='Data Scientist', user_id=2),
+            Profile(id=3, bio='Product Manager', user_id=3),
+            Profile(id=4, bio='Designer', user_id=4),
+            Profile(id=5, bio='Marketing Manager', user_id=5),
+        ]
+    )
+    session.commit()
+
+
+def seed_addresses(session: Session):
+    session.add_all(
+        [
+            Address(city='New York', country='USA', profile_id=1),
+            Address(city='Chicago', country='USA', profile_id=2),
+            Address(city='Boston', country='USA', profile_id=3),
+            Address(city='London', country='UK', profile_id=4),
+            Address(city='Paris', country='France', profile_id=5),
+        ]
+    )
+    session.commit()
+
+
 def seed_posts(session: Session):
     session.add_all(
         [
@@ -120,4 +165,6 @@ def seed_posts(session: Session):
 
 def seed_data(session: Session):
     seed_users(session)
+    seed_profiles(session)
+    seed_addresses(session)
     seed_posts(session)
