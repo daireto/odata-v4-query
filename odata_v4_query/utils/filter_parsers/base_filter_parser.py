@@ -75,22 +75,114 @@ class BaseFilterNodeParser(ABC):
         }
 
     @abstractmethod
-    def parse_startswith(self, field: str, value: Any) -> FilterNode: ...
+    def parse_startswith(self, field: str, value: Any) -> FilterNode:
+        """Parse a startswith function.
+
+        Parameters
+        ----------
+        field : str
+            Field name.
+        value : Any
+            Value to compare.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
+        ...
 
     @abstractmethod
-    def parse_endswith(self, field: str, value: Any) -> FilterNode: ...
+    def parse_endswith(self, field: str, value: Any) -> FilterNode:
+        """Parse an endswith function.
+
+        Parameters
+        ----------
+        field : str
+            Field name.
+        value : Any
+            Value to compare.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
+        ...
 
     @abstractmethod
-    def parse_contains(self, field: str, value: Any) -> FilterNode: ...
+    def parse_contains(self, field: str, value: Any) -> FilterNode:
+        """Parse a contains function.
+
+        Parameters
+        ----------
+        field : str
+            Field name.
+        value : Any
+            Value to compare.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
+        ...
 
     @abstractmethod
-    def parse_substring(self, field: str, start: int, length: int) -> FilterNode: ...
+    def parse_substring(self, field: str, start: int, length: int) -> FilterNode:
+        """Parse a substring function.
+
+        Parameters
+        ----------
+        field : str
+            Field name.
+        start : int
+            Start index.
+        length : int
+            Length of the substring.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
 
     @abstractmethod
-    def parse_tolower(self, field: str) -> FilterNode: ...
+    def parse_tolower(self, field: str) -> FilterNode:
+        """Parse a tolower function.
+
+        Parameters
+        ----------
+        field : str
+            Field name.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
 
     @abstractmethod
-    def parse_toupper(self, field: str) -> FilterNode: ...
+    def parse_toupper(self, field: str) -> FilterNode:
+        """Parse a toupper function.
+
+        Parameters
+        ----------
+        field : str
+            Field name.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
+        ...
 
     @abstractmethod
     def parse_membership_operators(
@@ -98,7 +190,25 @@ class BaseFilterNodeParser(ABC):
         left: Any,
         op_node: Any,
         right: Any,
-    ) -> FilterNode: ...
+    ) -> FilterNode:
+        """Parse an in/nin operator.
+
+        Parameters
+        ----------
+        left : Any
+            Left operand.
+        op_node : Any
+            Operator node.
+        right : Any
+            Right operand.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
+        ...
 
     @abstractmethod
     def parse_comparison_operators(
@@ -106,10 +216,46 @@ class BaseFilterNodeParser(ABC):
         left: Any,
         op_node: Any,
         right: Any,
-    ) -> FilterNode: ...
+    ) -> FilterNode:
+        """Parse an eq/ne/gt/ge/lt/le operator.
+
+        Parameters
+        ----------
+        left : Any
+            Left operand.
+        op_node : Any
+            Operator node.
+        right : Any
+            Right operand.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
+        ...
 
     @abstractmethod
-    def parse_has_operator(self, left: Any, op_node: Any, right: Any) -> FilterNode: ...
+    def parse_has_operator(self, left: Any, op_node: Any, right: Any) -> FilterNode:
+        """Parse a has operator.
+
+        Parameters
+        ----------
+        left : Any
+            Left operand.
+        op_node : Any
+            Operator node.
+        right : Any
+            Right operand.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
+        ...
 
     @abstractmethod
     def parse_and_or_operators(
@@ -117,10 +263,44 @@ class BaseFilterNodeParser(ABC):
         left: Any,
         op_node: Any,
         right: Any,
-    ) -> FilterNode: ...
+    ) -> FilterNode:
+        """Parse an and/or operator.
+
+        Parameters
+        ----------
+        left : Any
+            Left operand.
+        op_node : Any
+            Operator node.
+        right : Any
+            Right operand.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
+        ...
 
     @abstractmethod
-    def parse_not_nor_operators(self, op_node: Any, right: Any) -> FilterNode: ...
+    def parse_not_nor_operators(self, op_node: Any, right: Any) -> FilterNode:
+        """Parse a not/nor operator.
+
+        Parameters
+        ----------
+        op_node : Any
+            Operator node.
+        right : Any
+            Right operand.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        """
+        ...
 
     def parse(self, filter_node: FilterNode) -> Any:
         """Parse an AST to an ORM/ODM filter expression from the root node.
@@ -280,6 +460,34 @@ class BaseFilterNodeParser(ABC):
         field: str,
         arguments: list[Any],
     ) -> FilterNode:
+        """Get a function node.
+
+        Parameters
+        ----------
+        function_name : str
+            Function name.
+        field : str
+            Field name.
+        arguments : list[Any]
+            Arguments.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        Raises
+        ------
+        UnknownFunctionError
+            If the function is unknown.
+        UnexpectedNumberOfArgumentsError
+            If the number of arguments does not match the expected number.
+        UnexpectedNullOperandError
+            If an operand is None.
+        UnexpectedTypeError
+            If an operand is of the wrong type.
+
+        """
         parser = self._functions_map.get(function_name)
         if parser is None:  # pragma: no cover
             raise UnknownFunctionError(function_name)
@@ -310,6 +518,28 @@ class BaseFilterNodeParser(ABC):
         left: FilterNode | None,
         right: FilterNode | None,
     ) -> FilterNode:
+        """Parse a comparison or membership operator.
+
+        Parameters
+        ----------
+        operator : str
+            Operator.
+        left : FilterNode | None
+            Left operand.
+        right : FilterNode | None
+            Right operand.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        Raises
+        ------
+        UnexpectedNullOperandError
+            If an operand is None.
+
+        """
         if left is None or right is None:
             raise UnexpectedNullOperandError(operator)
 
@@ -339,6 +569,28 @@ class BaseFilterNodeParser(ABC):
         left: FilterNode | None,
         right: FilterNode | None,
     ) -> FilterNode:
+        """Parse a logical operator.
+
+        Parameters
+        ----------
+        operator : str
+            Operator.
+        left : FilterNode | None
+            Left operand.
+        right : FilterNode | None
+            Right operand.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        Raises
+        ------
+        UnexpectedNullOperandError
+            If an operand is None.
+
+        """
         if operator in (AND, OR):
             if (
                 left is None
@@ -365,10 +617,45 @@ class BaseFilterNodeParser(ABC):
         left: FilterNode | None,
         right: FilterNode | None,
     ) -> FilterNode:
+        """Parse a has operator.
+
+        Parameters
+        ----------
+        operator : str
+            Operator.
+        left : FilterNode | None
+            Left operand.
+        right : FilterNode | None
+            Right operand.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the resulting ORM/ODM filter.
+
+        Raises
+        ------
+        UnexpectedNullOperandError
+            If an operand is None.
+
+        """
         if left is None or right is None or left.value is None or right.value is None:
             raise UnexpectedNullOperandError(operator)
 
         return self.parse_has_operator(left.value, operator, right.value)
 
     def _get_value_filter_node(self, value: Any) -> FilterNode:
+        """Get a filter node containing a value.
+
+        Parameters
+        ----------
+        value : Any
+            Value.
+
+        Returns
+        -------
+        FilterNode
+            New filter node containing the value.
+
+        """
         return FilterNode(type_='value', value=value)
