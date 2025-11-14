@@ -57,6 +57,7 @@ class MongoDBFilterNodeParser(BaseFilterNodeParser):
         return super().parse(filter_node)
 
     def parse_startswith(self, field: str, value: Any) -> FilterNode:
+        field = self._normalize_field_path(field)
         expr_value = {
             field: {
                 '$regex': f'^{value}',
@@ -66,6 +67,7 @@ class MongoDBFilterNodeParser(BaseFilterNodeParser):
         return self._get_value_filter_node(expr_value)
 
     def parse_endswith(self, field: str, value: Any) -> FilterNode:
+        field = self._normalize_field_path(field)
         expr_value = {
             field: {
                 '$regex': f'{value}$',
@@ -75,6 +77,7 @@ class MongoDBFilterNodeParser(BaseFilterNodeParser):
         return self._get_value_filter_node(expr_value)
 
     def parse_contains(self, field: str, value: Any) -> FilterNode:
+        field = self._normalize_field_path(field)
         expr_value = {
             field: {
                 '$regex': value,
@@ -105,7 +108,8 @@ class MongoDBFilterNodeParser(BaseFilterNodeParser):
         right: Any,
     ) -> FilterNode:
         operator = self._to_mongo_operator(op_node)
-        return FilterNode(type_='value', value={left: {operator: right}})
+        field = self._normalize_field_path(left) if isinstance(left, str) else left
+        return FilterNode(type_='value', value={field: {operator: right}})
 
     def parse_comparison_operators(
         self,
@@ -114,10 +118,12 @@ class MongoDBFilterNodeParser(BaseFilterNodeParser):
         right: Any,
     ) -> FilterNode:
         operator = self._to_mongo_operator(op_node)
-        return FilterNode(type_='value', value={left: {operator: right}})
+        field = self._normalize_field_path(left) if isinstance(left, str) else left
+        return FilterNode(type_='value', value={field: {operator: right}})
 
     def parse_has_operator(self, left: Any, _: Any, right: Any) -> FilterNode:
-        return FilterNode(type_='value', value={left: right})
+        field = self._normalize_field_path(left) if isinstance(left, str) else left
+        return FilterNode(type_='value', value={field: right})
 
     def parse_and_or_operators(self, left: Any, op_node: Any, right: Any) -> FilterNode:
         operator = self._to_mongo_operator(op_node)
@@ -131,6 +137,19 @@ class MongoDBFilterNodeParser(BaseFilterNodeParser):
         return FilterNode(type_='value', value=value)
 
     def _to_mongo_operator(self, operator: str) -> str:
+        """Convert an OData operator to a MongoDB operator.
+
+        Parameters
+        ----------
+        operator : str
+            OData operator.
+
+        Returns
+        -------
+        str
+            MongoDB operator.
+
+        """
         if operator == GE:
             return '$gte'
         if operator == LE:
@@ -138,3 +157,19 @@ class MongoDBFilterNodeParser(BaseFilterNodeParser):
         if operator in (EQ, NE, GT, LT, IN, NIN, AND, OR, NOT, NOR):
             return f'${operator}'
         raise UnknownOperatorError(operator)  # pragma: no cover
+
+    def _normalize_field_path(self, field: str) -> str:
+        """Convert OData path separator (/) to MongoDB dot notation (.).
+
+        Parameters
+        ----------
+        field : str
+            Field path using OData notation (e.g., 'Customer/Name').
+
+        Returns
+        -------
+        str
+            Field path using MongoDB dot notation (e.g., 'Customer.Name').
+
+        """
+        return field.replace('/', '.')
