@@ -236,6 +236,62 @@ class TestBeanie:
         assert result[0]['name'] == 'John'
         assert result[0]['email'] == 'john@example.com'
 
+    def test_filter_nested_field_eq(self, db: Database):
+        options = self.parser.parse_query_string("$filter=profile/city eq 'Chicago'")
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 1
+        assert result[0]['name'] == 'Alice'
+        assert result[0]['profile']['city'] == 'Chicago'
+
+    def test_filter_nested_field_comparison(self, db: Database):
+        options = self.parser.parse_query_string(
+            "$filter=profile/city eq 'New York' and age gt 20"
+        )
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 1
+        assert result[0]['name'] == 'John'
+
+    def test_filter_nested_field_startswith(self, db: Database):
+        options = self.parser.parse_query_string(
+            "$filter=startswith(profile/city, 'San')"
+        )
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 3
+        names = [r['name'] for r in result]
+        assert 'David' in names  # San Antonio
+        assert 'Eve' in names  # San Diego
+        assert 'Grace' in names  # San Jose
+
+    def test_filter_nested_field_contains(self, db: Database):
+        options = self.parser.parse_query_string(
+            "$filter=contains(profile/city, 'Angeles')"
+        )
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 1
+        assert result[0]['name'] == 'Jane'
+
+    def test_filter_nested_field_in_operator(self, db: Database):
+        options = self.parser.parse_query_string(
+            "$filter=profile/city in ('Chicago', 'Houston', 'Dallas')"
+        )
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 3
+        names = [r['name'] for r in result]
+        assert 'Alice' in names  # Chicago
+        assert 'Bob' in names  # Houston
+        assert 'Frank' in names  # Dallas
+
+    def test_filter_nested_field_has_operator(self, db: Database):
+        options = self.parser.parse_query_string("$filter=profile/country has 'USA'")
+        query = get_query_from_options(options)
+        result = list(db.users.find(**query))
+        assert len(result) == 10
+
     def test_unexpected_null_filters(self):
         options = ODataQueryOptions(filter_=FilterNode(type_='value'))
         with pytest.raises(UnexpectedNullFiltersError):

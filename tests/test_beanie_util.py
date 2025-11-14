@@ -253,6 +253,68 @@ class TestBeanie:
         assert result[0]['email'] == 'john@example.com'
 
     @pytest.mark.asyncio
+    async def test_filter_nested_field_eq(self):
+        options = self.parser.parse_query_string("$filter=profile/city eq 'Chicago'")
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 1
+        assert result[0].name == 'Alice'
+        assert result[0].profile.city == 'Chicago'
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_comparison(self):
+        options = self.parser.parse_query_string(
+            "$filter=profile/city eq 'New York' and age gt 20"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 1
+        assert result[0].name == 'John'
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_startswith(self):
+        options = self.parser.parse_query_string(
+            "$filter=startswith(profile/city, 'San')"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 3
+        names = [r.name for r in result]
+        assert 'David' in names  # San Antonio
+        assert 'Eve' in names  # San Diego
+        assert 'Grace' in names  # San Jose
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_contains(self):
+        options = self.parser.parse_query_string(
+            "$filter=contains(profile/city, 'Angeles')"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 1
+        assert result[0].name == 'Jane'
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_in_operator(self):
+        options = self.parser.parse_query_string(
+            "$filter=profile/city in ('Chicago', 'Houston', 'Dallas')"
+        )
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 3
+        names = [r.name for r in result]
+        assert 'Alice' in names  # Chicago
+        assert 'Bob' in names  # Houston
+        assert 'Frank' in names  # Dallas
+
+    @pytest.mark.asyncio
+    async def test_filter_nested_field_has_operator(self):
+        options = self.parser.parse_query_string("$filter=profile/country has 'USA'")
+        query = apply_to_beanie_query(options, User)
+        result = await query.to_list()
+        assert len(result) == 10
+
+    @pytest.mark.asyncio
     async def test_projection(self):
         options = self.parser.parse_query_string('$top=1')
         query = apply_to_beanie_query(options, User, projection_model=UserProjection)
