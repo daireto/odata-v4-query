@@ -56,6 +56,7 @@ options to ORM/ODM queries such as SQLAlchemy, PyMongo and Beanie.
     - Logical operators: `and`, `or`, `not`, `nor`
     - Collection operators: `has`
     - String functions: `startswith`, `endswith`, `contains`, `substring`, `tolower`, `toupper`
+    - Nested field filtering: `user/name`, `profile/address/city`
 
 - Utility functions to apply options to ORM/ODM queries.
     - See [utility functions](#utility-functions) for more information.
@@ -107,6 +108,10 @@ ast = filter_parser.parse("name eq 'John' and age gt 25")
 
 # Evaluate filter expressions
 filter_parser.evaluate(ast)
+
+# Filter with nested fields
+options = parser.parse_query_string("$filter=user/name eq 'Alice'")
+options = parser.parse_query_string("$filter=profile/address/city eq 'Chicago'")
 ```
 
 ## Utility Functions
@@ -145,6 +150,23 @@ query = apply_to_beanie_query(options, User)
 # Apply options to an existing query
 query = User.find()
 query = apply_to_beanie_query(options, query)
+```
+
+Nested field filtering is supported using the `/` separator for accessing nested
+document fields. Both single-level and multi-level nesting are supported:
+
+```python
+# Single-level: Filter by nested field
+options = parser.parse_query_string("$filter=profile/city eq 'Chicago'")
+query = apply_to_beanie_query(options, User)
+
+# Multi-level: Filter by deeply nested field
+options = parser.parse_query_string("$filter=profile/address/city eq 'Chicago'")
+query = apply_to_beanie_query(options, User)
+
+# Use with string functions
+options = parser.parse_query_string("$filter=startswith(profile/city, 'Chi')")
+query = apply_to_beanie_query(options, User)
 ```
 
 The `$search` option is only supported if `search_fields` is provided.
@@ -218,6 +240,23 @@ db.users.find(
 )
 ```
 
+Nested field filtering is supported using the `/` separator for accessing nested
+document fields. Both single-level and multi-level nesting are supported:
+
+```python
+# Single-level: Filter by nested field
+options = parser.parse_query_string("$filter=profile/city eq 'Chicago'")
+query = get_query_from_options(options)
+
+# Multi-level: Filter by deeply nested field
+options = parser.parse_query_string("$filter=profile/address/city eq 'Chicago'")
+query = get_query_from_options(options)
+
+# Use with string functions
+options = parser.parse_query_string("$filter=contains(profile/city, 'ago')")
+query = get_query_from_options(options)
+```
+
 The `$search` option is only supported if `search_fields` is provided.
 It overrides the `$filter` option.
 
@@ -269,6 +308,31 @@ query = apply_to_sqlalchemy_query(options, User)
 # Apply options to an existing query
 query = select(User)
 query = apply_to_sqlalchemy_query(options, query)
+```
+
+Nested field filtering is supported using the `/` separator for filtering on
+related entities. Both single-level and multi-level nesting are supported:
+
+```python
+# Single-level: Filter by related entity field
+options = parser.parse_query_string("$filter=user/name eq 'Alice'")
+query = apply_to_sqlalchemy_query(options, Post)
+
+# Multi-level: Filter by deeply nested field
+options = parser.parse_query_string("$filter=user/profile/address/city eq 'Chicago'")
+query = apply_to_sqlalchemy_query(options, Post)
+
+# Use with string functions
+options = parser.parse_query_string("$filter=tolower(user/name) eq 'alice'")
+query = apply_to_sqlalchemy_query(options, Post)
+
+# Multi-level with functions
+options = parser.parse_query_string("$filter=startswith(user/profile/address/city, 'Chi')")
+query = apply_to_sqlalchemy_query(options, Post)
+
+# Combine with other filters
+options = parser.parse_query_string("$filter=user/name eq 'Alice' and rating gt 3")
+query = apply_to_sqlalchemy_query(options, Post)
 ```
 
 The `$search` option is only supported if `search_fields` is provided.
